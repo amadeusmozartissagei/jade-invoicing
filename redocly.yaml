@@ -1,0 +1,6 @@
+# Redocly CLI lint configuration for openapi/openapi.yaml.
+extends:
+  - recommended
+rules:
+  # The only server until the first deployment is the local one.
+  no-server-example.com: off

@@ -191,7 +191,7 @@ Invoices, credit notes, and corrected invoices (D3).
 | `prepaid_amount` | BT-113 | Advance payments deducted at issue. Later payments go to `payments` |
 | `rounding_amount` | BT-114 | |
 | `amount_due` | BT-115 | |
-| `version` | | int, for optimistic locking of draft edits (the API's `If-Match`, step 3) |
+| `version` | | int, for optimistic locking of draft edits (the API's `ETag` and `If-Match`, ADR 0008) |
 | `retention_until` | | date, set at issue (see [Retention](#retention)) |
 | `issued_at`, `voided_at`, `void_reason`, `corrected_at` | | |
 
@@ -267,11 +267,10 @@ The invoice is paid when the sum of its payments reaches `amount_due` (D9). Reco
 |---|---|
 | `tenant_id`, `key` (PK) | The client's `Idempotency-Key` header |
 | `method`, `path`, `request_hash` | A replay with a different request is rejected |
-| `state` | `in_progress` or `completed` |
-| `response_status`, `response_body` | Replayed on a repeat |
-| `expires_at` | |
+| `response_status`, `response_body` | Replayed on a repeat. Only `2xx` responses are stored, with one-time secrets removed. *PII* (a created customer) |
+| `expires_at` | 24 hours after creation |
 
-The exact semantics (lifetime, concurrent repeats, which endpoints) are part of the OpenAPI spec (step 3).
+A row is written in the same transaction as the change it belongs to, so there is no in-progress state. Concurrent repeats are detected with an advisory lock; see [api.md](api.md#idempotency-a3) (ADR 0008).
 
 ### `events` (S, I)
 
@@ -290,8 +289,10 @@ The record of what happened, and the transactional outbox for webhooks.
 |---|---|
 | `url` | `https://` only (check) |
 | `secret_ciphertext`, `secret_key_id` | D8 |
+| `previous_secret_ciphertext`, `previous_secret_key_id`, `previous_secret_expires_at` | Null except for 24 hours after a rotation, while deliveries carry both signatures (ADR 0009, W4) |
 | `event_types` | text[]; empty means all |
 | `enabled` | bool |
+| `disabled_reason` | text null, e.g. set when a receiver answers `410 Gone` |
 
 ### `webhook_deliveries` (S, I, U)
 
@@ -308,7 +309,7 @@ The record of what happened, and the transactional outbox for webhooks.
 | `delivery_id`, `attempt_no` | `unique (delivery_id, attempt_no)` |
 | `started_at`, `duration_ms`, `response_status`, `error` | `error` is truncated and never holds the request body |
 
-The signature scheme, retry schedule, and payload format are part of step 3.
+The signature scheme, retry schedule, and payload format are in [api.md](api.md#webhooks) (ADR 0009).
 
 ### `audit_log` (S, I)
 
@@ -386,7 +387,7 @@ Tests assert exact amounts, including exact half cents and half yen, several rat
 - **Transactional outbox:** the event row, one delivery row per subscribed endpoint, and one `pgmq.send` per delivery are written in the same transaction as the change. `pgmq` lives in the same database, so a committed invoice always has its event and queued deliveries, and a rolled-back one has neither.
 - **Messages carry only IDs** (`delivery_id`, `tenant_id`). The `pgmq` queue tables have no RLS, so they hold nothing a tenant should not see.
 - **Worker** (ADR 0003): read a batch, set the tenant per message, lock the delivery row, send, record the attempt, then archive the message on success or push its visibility timeout out for the next retry. After the last attempt the delivery becomes `dead`.
-- **At-least-once:** a crash after sending but before archiving sends again. The receiver deduplicates on the event ID; the signature and retry schedule are specified in step 3.
+- **At-least-once:** a crash after sending but before archiving sends again. The receiver deduplicates on the event ID (`webhook-id`); the signature and retry schedule are in [api.md](api.md#webhooks).
 
 ## Retention
 
@@ -399,7 +400,7 @@ Nothing is deleted when the date passes. Phase 4 lists expired documents for the
 
 ## Indexes beyond keys and unique constraints
 
-- `invoices (tenant_id, status, created_at desc)` and `invoices (tenant_id, customer_id, created_at desc)` for list endpoints.
+- `invoices (tenant_id, status, created_at desc, id desc)` and `invoices (tenant_id, customer_id, created_at desc, id desc)` for list endpoints, which page by `(created_at, id)` ([api.md](api.md#pagination-a6)). Other listed tables (`customers`, `api_keys`, `webhook_deliveries` per endpoint) get the same `(…, created_at desc, id desc)` shape.
 - `invoices (tenant_id, preceding_invoice_id)` where not null, for the credit-note checks.
 - `webhook_deliveries (tenant_id, status, next_attempt_at)`.
 - `audit_log (tenant_id, occurred_at desc)` and `(tenant_id, subject_type, subject_id)`.
