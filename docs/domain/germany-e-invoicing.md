@@ -104,6 +104,7 @@ The BMF's FAQ page restates the three letters in plain language. It says itself 
 
 - **The tax amount must be calculated exactly to the cent and rounded commercially** (kaufmännisch: 0.5 cent and above rounds away from zero). [BMF-2026 Rn. 17, UStAE 14.5 Abs. 20]
 - The EN 16931 core data model calculates from net amounts. For prices that are fixed gross (e.g. books under fixed book prices), this can cause rounding differences that break either the standard or the tax rounding rule. A gross-price format would solve it, but XRechnung and ZUGFeRD have none yet. [BMF-2026 Rn. 18, 19]
+- The EN 16931 totals, VAT breakdown, and decimal rules are in [germany-en16931-calculation.md](germany-en16931-calculation.md).
 - Until **31 Dec 2027**, a gross-price E-Rechnung may show only the net totals per tax rate, the rate, and the tax amount in the structured part, if an embedded human-readable attachment lists the line items that add up to those totals and the structured part refers to it. [BMF-2026 Rn. 19]
 
 ## Required items (Pflichtangaben)
@@ -162,7 +163,6 @@ In an E-Rechnung, the mandatory items must be in the structured part. [BMF-2025,
 - The mapping of mandatory items to EN 16931 fields is in [germany-en16931-mapping.md](germany-en16931-mapping.md). Check for a newer version of the KoSIT/FeRD table after the BMF letter of 15 Oct 2026.
 - The ERechV threshold of €1,000 for federal B2G invoices is taken from the BMF FAQ, not from the ERechV itself. Check the regulation before the platform supports B2G.
 - Sections 5 (retention) and the transitional rules (Rn. 62 to 65) of the 2024 letter were not read closely, because the 2025 letter rewrote Rn. 60 and § 27 Abs. 38 UStG is already covered above.
-- EN 16931 calculation rules in detail (line versus document totals, allowances and charges). The tax rule itself is settled above (to the cent, commercial rounding). Source: the EN 16931 business rules as published with the KoSIT validator configuration.
 - Which XRechnung syntax to generate first (UBL or CII). CII is shared with ZUGFeRD, so it may be the cheaper first choice.
 - Whether to support XRechnung 4.0 from the start or only 3.0.x.
 

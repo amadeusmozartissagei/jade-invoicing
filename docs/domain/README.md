@@ -7,6 +7,7 @@ Rules the platform must follow, each with a primary source. These are engineerin
 | [japan-qualified-invoice.md](japan-qualified-invoice.md) | Japan's Qualified Invoice System: registration numbers, required items, tax rates, rounding, return and corrected invoices, retention | 2026-11-01 |
 | [germany-e-invoicing.md](germany-e-invoicing.md) | German B2B e-invoicing: E-Rechnung definition, transition timeline, XRechnung and ZUGFeRD, required items, retention | 2026-11-01 |
 | [germany-en16931-mapping.md](germany-en16931-mapping.md) | German mandatory invoice items mapped to EN 16931 business terms (KoSIT/FeRD table) | 2026-11-01 |
+| [germany-en16931-calculation.md](germany-en16931-calculation.md) | EN 16931 calculation rules: totals, VAT breakdown, decimals, validator tolerance, XRechnung rules that shape the data model | 2026-11-01 |
 | [retention-and-gdpr.md](retention-and-gdpr.md) | Invoice retention versus the GDPR right to erasure | 2026-11-01 |
 
 ## Rules that shape the design most
@@ -15,10 +16,10 @@ Rules the platform must follow, each with a primary source. These are engineerin
 2. **Japan rounds tax once per tax rate per invoice**, never per line.
 3. **In Germany the structured XML is the invoice.** The PDF is a rendering of the same data, and the XML must be archived unchanged.
 4. **German invoice numbers are sequential and unique**, so numbering needs a concurrency-safe counter.
-5. **Retention is 7 years (Japan) or 8 years (Germany)** with different start dates, and it overrides the GDPR right to erasure for the invoice itself.
+5. **Both countries calculate tax once per rate on the per-rate total**, never per line, so one tax engine with per-jurisdiction rounding serves both.
+6. **Retention is 7 years (Japan) or 8 years (Germany)** with different start dates, and it overrides the GDPR right to erasure for the invoice itself.
 
 ## Gaps to close
 
 - Whether KoSIT/FeRD publish a newer mapping table after the BMF letter of 15 Oct 2026. (The BMF FAQ, as of October 2026, has been read; see the German note.)
-- EN 16931 calculation rules in detail. German tax rounding is settled: to the cent, commercial rounding.
 - Japanese corporate number check digit, the NTA registration lookup API, and APPI deletion rules.

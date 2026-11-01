@@ -57,6 +57,8 @@ There is no prescribed layout. An electronic record (電子インボイス) may 
 
 A return invoice carries the issuer name and registration number, the return date, the date of the original transaction, details of the return (with the reduced-rate mark), the return amount per tax rate, and either the tax amount or the rate per tax rate.
 
+**How to correct an issued document.** When an issued qualified invoice, simplified invoice, or return invoice has an error, the issuer must give the buyer a corrected document (消法57の4④⑤). The NTA names two ways: issue a new document with the error fixed that again states **all** required items, or issue a document that makes its relation to the original clear and states the corrected items. The issuer keeps copies of both the original and the correction. The NTA's example of the first way is titled 請求書《修正》, so the new document shows that it is a correction. [NTA-QA-FULL 問32, 問33, PDF p.43 to 44] Alternatively, the buyer may make a corrected purchase statement (仕入明細書) and have the seller confirm it, and then the seller need not issue a correction. [NTA-QA-FULL 問32]
+
 Discounts on last month's sales cannot simply be netted into this month's invoice. The issuer needs a return invoice for last month and a qualified invoice for this month. [NTA-LEAFLET PDF p.10]
 
 ## Retention
@@ -78,6 +80,7 @@ These affect buyers and small issuers. The platform mainly needs them for report
 - **Tax engine:** group lines by rate, sum per rate, compute tax per rate, round once per rate with a rounding mode set per tenant. Test that per-line rounding is never used.
 - **Validate registration numbers** as `T` + 13 digits. Checking a corporate number's check digit or querying the NTA announcement site is a follow-up (see open questions).
 - **Document types:** qualified invoice, simplified qualified invoice, return invoice, corrected invoice. Issued documents are immutable; a correction is a new document that references the original.
+- **Errors are fixed with a corrected invoice, not a return invoice.** A return invoice (適格返還請求書) is for returns, discounts, and rebates. A plain new invoice with no visible link to the original is not one of the NTA's correction methods, so the platform needs a corrected-invoice document that references the original and restates all items.
 - **Retention clock** depends on the tenant's taxable period, not only the issue date.
 
 ## Open questions
@@ -92,4 +95,5 @@ These affect buyers and small issuers. The platform mainly needs them for report
 - **[NTA-LEAFLET]** 国税庁, 『インボイス制度の理解のために』 (令和8年4月): https://www.nta.go.jp/taxes/shiraberu/zeimokubetsu/shohi/keigenzeiritsu/pdf/0020006-027.pdf
 - **[NTA-QA-57]** 国税庁 インボイスQ&A 問57 (適格請求書に記載する消費税額等の端数処理): https://www.nta.go.jp/taxes/shiraberu/zeimokubetsu/shohi/keigenzeiritsu/pdf/qa/57.pdf
 - **[NTA-QA-28]** 国税庁 インボイスQ&A 問28 (少額な対価返還等に係る適格返還請求書の交付義務免除): https://www.nta.go.jp/taxes/shiraberu/zeimokubetsu/shohi/keigenzeiritsu/pdf/qa/28.pdf
-- NTA Invoice Q&A, full version (revised May 2026): https://www.nta.go.jp/taxes/shiraberu/zeimokubetsu/shohi/keigenzeiritsu/pdf/qa/01-01.pdf
+- **[NTA-QA-FULL]** 国税庁『消費税の仕入税額控除制度における適格請求書等保存方式に関するＱ＆Ａ』(令和８年５月改訂), full version: https://www.nta.go.jp/taxes/shiraberu/zeimokubetsu/shohi/keigenzeiritsu/pdf/qa/01-01.pdf
+  - SHA-256 of the copy read (downloaded 2026-11-01): `d0e50ed858d7ea7d707edd9dd440878740aeb8f6c9c4994a47f2f167699d3763`

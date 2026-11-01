@@ -55,7 +55,7 @@ Out of scope for the MVP (domestic B2B), listed so the data model does not block
 
 - **The invoice model mirrors these business terms.** Name model fields after the BTs they map to (or keep a mapping table in code), so a reviewer can check each mandatory item against this page.
 - **One test per row of the core table.** Each test builds an invoice and asserts that the generated XML has the item in the listed field.
-- **Invoice type codes:** this table gives 389 (self-billing), 386 (advance), and 326 (partial). The code for a normal commercial invoice is not in it and must be taken from the code list in the XRechnung specification. Correction codes are still open (see the corrections section of [germany-e-invoicing.md](germany-e-invoicing.md)).
+- **Invoice type codes:** this table gives 389 (self-billing), 386 (advance), and 326 (partial). The code for a normal commercial invoice is 380, from the XRechnung rule BR-DE-17 (see [germany-en16931-calculation.md](germany-en16931-calculation.md#invoice-type-codes-bt-3)). Correction codes are still open (see the corrections section of [germany-e-invoicing.md](germany-e-invoicing.md)).
 - **Supplier tax ID:** require at least one of BT-31 and BT-32 per tenant.
 - **Supply date:** support a single date (BT-72) and a period (BG-14), since services often span a month.
 
