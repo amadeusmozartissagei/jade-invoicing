@@ -78,14 +78,15 @@ Free-tier limits that shape the design (details and sources in ADR 0001):
 
 Still open, to settle in the first sessions with an ADR each:
 
-- Spike: confirm that `pgmq`, `pg_cron`, and `pg_net` work on Supabase Free, and that Go functions on Vercel reach Supabase through its connection pooler.
-- Go HTTP routing and database access style (e.g. standard library or chi; pgx with sqlc).
-- How background work triggers webhooks and retries (pg_cron polling a Go endpoint, or another design).
+- Go HTTP routing and database access style (e.g. standard library or chi; pgx with sqlc). Must use pgx simple protocol, because the Supabase transaction pooler has no prepared statements (ADR 0003).
 - How to generate and validate XRechnung and ZUGFeRD. The official validator is Java, so it may run in CI only.
 - PDF generation, including PDF/A-3 for ZUGFeRD.
 - Monorepo layout.
 
-Settled: the repository name is `jade-invoicing` (ADR 0002).
+Settled:
+
+- The repository name is `jade-invoicing` (ADR 0002).
+- Background jobs: `pgmq` queues, drained by a Go endpoint on Vercel that `pg_cron` + `pg_net` call every few seconds (ADR 0003). Supabase project: Free plan, Frankfurt, Data API off, RLS on by default. Database changes go through `supabase/migrations/`, not the dashboard.
 
 ## Roadmap (draft; refine in phase 0)
 
