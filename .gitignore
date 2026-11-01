@@ -1,0 +1,22 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Go
+*.exe
+*.test
+*.out
+coverage.*
+
+# Node
+node_modules/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
