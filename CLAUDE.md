@@ -78,14 +78,15 @@ Free-tier limits that shape the design (details and sources in ADR 0001):
 
 Still open, to settle in the first sessions with an ADR each:
 
-- Go HTTP routing and database access style (e.g. standard library or chi; pgx with sqlc). Must use pgx simple protocol, because the Supabase transaction pooler has no prepared statements (ADR 0003).
 - How to generate and validate XRechnung and ZUGFeRD. The official validator is Java, so it may run in CI only.
-- PDF generation, including PDF/A-3 for ZUGFeRD.
-- Monorepo layout.
+- PDF engine: Typst is Proposed (ADR 0006), pending a spike on Vercel early in phase 1; fallback is a pure-Go library. The ZUGFeRD XMP block is unproven.
+- Whether to generate Go server code from the OpenAPI spec (`oapi-codegen`), decided with the spec.
 
 Settled:
 
 - The repository name is `jade-invoicing` (ADR 0002).
+- Layout: `apps/api` (one Go module, one HTTP server via the Vercel Go preset, `cmd/api/main.go`) and `apps/dashboard` (Next.js) as two Vercel projects; `openapi/`, `supabase/`, `infra/terraform/` at the root (ADR 0004).
+- Go: standard library `net/http` routing; `pgx` v5 in `QueryExecModeExec` (tested through the transaction pooler; simple protocol is the fallback) with `sqlc`; tenant set per transaction with `set_config(..., true)` for RLS (ADR 0005). ADR template: `docs/adr/template.md`.
 - Background jobs: `pgmq` queues, drained by a Go endpoint on Vercel that `pg_cron` + `pg_net` call every few seconds (ADR 0003). Supabase project: Free plan, Frankfurt, Data API off, RLS on by default. Database changes go through `supabase/migrations/`, not the dashboard.
 
 ## Roadmap (draft; refine in phase 0)
