@@ -20,3 +20,6 @@ node_modules/
 Thumbs.db
 .idea/
 .vscode/
+
+# Source copies kept local only (not clearly free to redistribute)
+docs/domain/sources/bmf-faq-e-rechnung-*.pdf

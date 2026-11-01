@@ -19,6 +19,6 @@ Rules the platform must follow, each with a primary source. These are engineerin
 
 ## Gaps to close
 
-- The BMF FAQ (the BMF website blocks automated tools, so a person has to download it), and whether KoSIT/FeRD publish a newer mapping table after the BMF letter of 15 Oct 2026.
+- Whether KoSIT/FeRD publish a newer mapping table after the BMF letter of 15 Oct 2026. (The BMF FAQ, as of October 2026, has been read; see the German note.)
 - EN 16931 calculation rules in detail. German tax rounding is settled: to the cent, commercial rounding.
 - Japanese corporate number check digit, the NTA registration lookup API, and APPI deletion rules.

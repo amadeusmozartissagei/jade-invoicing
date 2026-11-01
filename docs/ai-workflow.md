@@ -4,6 +4,51 @@ This project is built with an AI coding agent (Claude Code). The agent writes co
 
 This file records what the agent did, what the human decided, and how the work was checked. Add an entry for each significant decision or slice.
 
+## How each slice is reviewed
+
+One model playing several roles is not an independent review, so the review steps are separated by who or what does them:
+
+1. **Self-review by the authoring session.** Re-check every factual claim against its source, test cheap assumptions, and walk through the checklists below. Useful, but not independent.
+2. **Tests and linters in CI.** The only check that does not depend on anyone's judgement.
+3. **`/code-review`** on the diff before each commit or PR, run as a separate review pass rather than by the session that wrote the code.
+4. **`/security-review`** on any slice that touches authentication, API keys, tenant isolation, webhooks, or personal data.
+5. **Owner review.** Hamza reads the diff and must be able to explain it; at the end of each phase he is quizzed on the design.
+
+Parallel work runs in separate git worktrees, one session per set of files.
+
+An AI reviewing AI-written code can share its blind spots. Steps 2 and 5 are the checks that do not come from the model.
+
+### Checklists
+
+**Security**
+
+- Every endpoint authenticates, and every query that reads tenant data runs inside a transaction that sets the tenant, so RLS applies.
+- SQL values only go through parameters; no SQL is built from strings.
+- No secrets in code, logs, URLs, or error messages; secrets come from the environment.
+- Signatures (webhook HMAC, API keys) are compared in constant time; API keys are stored hashed.
+- Input is validated at the API boundary; error responses do not leak internals.
+- Personal data is kept to what the feature needs and is marked for later encryption and retention rules.
+
+**Database**
+
+- The change is a migration in `supabase/migrations/`, never a dashboard edit.
+- New tables have RLS enabled and a policy; constraints (`not null`, `check`, foreign keys) encode the invariants.
+- Issued invoices cannot be changed, enforced in the database, not only in Go.
+- Concurrent writes (invoice numbering, status changes) have a stated locking strategy and a test.
+- New queries have the indexes they need, and work through the transaction pooler.
+- Money is never stored or computed as a float.
+
+**QA**
+
+- Every acceptance criterion has a test.
+- Tax and rounding tests cover boundaries (exact half cents and yen, zero, multiple rates, credit notes) and cite the rule they check.
+- Retries and duplicate requests are tested for idempotency.
+- Test data is synthetic: no real companies, tax numbers, or people.
+
+**Docs**
+
+- Regulatory claims link a primary source; decisions have an ADR; `docs/interview-notes/` covers the slice.
+
 ## Decision log
 
 ### 2026-11-01: Pivot from e-KYC to invoicing (ADR 0001)
@@ -38,3 +83,8 @@ This file records what the agent did, what the human decided, and how the work w
 - **What the human decided.** Hamza chose all four: `apps/api` and `apps/dashboard` as two Vercel projects (not the Services beta), standard library routing, `pgx` with `sqlc`, and Typst for PDFs subject to a spike.
 - **How it was checked.** The research changed the plan: the spike had assumed one Vercel function per Go file, but the Go runtime now runs a whole HTTP server, so the API becomes one server. Facts are linked with the date they were checked. What is not proven (Typst running on Vercel, the ZUGFeRD XMP block) is stated in ADR 0006, which stays Proposed until a spike passes.
 - **Review before commit.** Hamza asked the agent to review its own drafts instead of handing him a checklist. This was a self-review, not an independent one. The agent re-checked each claim against its source and found: an unsourced statement about a PDF library's license (removed); imprecise wording about Go `embed` and Vercel build skipping (fixed); and, while reading the `pgx` source to confirm how simple protocol handles parameters, that `pgx` recommends a different mode (`QueryExecModeExec`) that also avoids named prepared statements. It tested that mode against the live pooler with read-only queries before changing ADR 0005, which now uses it with the simple protocol as fallback. The lesson: reading the library's own source during review turned up a better option than the one the spike had settled on.
+
+### 2026-11-01: Review process and the BMF FAQ
+
+- **Review process.** Hamza had asked about prompting the agent as a "team" of role-played specialists. The agent advised against it: one model with persona labels gives no independent review, and a fixed sequence of roles puts QA and security last. Hamza agreed to the alternative, recorded above under "How each slice is reviewed": role checklists that are applied to every slice, plus review steps that do not come from the authoring session (CI, `/code-review`, `/security-review`, and his own review).
+- **BMF FAQ.** Hamza saved the BMF FAQ page as a PDF by hand, because the site blocks automated tools. The agent read all 12 pages and added only the points the letters did not already cover to `docs/domain/germany-e-invoicing.md`, cited by question number. It also checked a vendor blog's claim that the FAQ revision made PDF invoices newly invalid, and found that the FAQ says no such thing.

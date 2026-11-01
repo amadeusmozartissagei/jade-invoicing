@@ -83,6 +83,23 @@ The rules from this letter are placed in the sections where they belong (correct
 - **Rebate agreements** (bonuses, Skonti, discounts) whose amount is not known at invoice time must be referred to in the invoice. A general reference is accepted if the written agreement can be produced quickly. A later change to the agreement does not require a correction. [BMF-2026 Rn. 15, 16, UStAE 14.5 Abs. 19]
 - **Public administration** customers: the VAT e-invoicing rules apply only when the authority acts as a business. Separate public-procurement e-invoicing rules (e.g. the federal ERechV, since 27 Nov 2020) apply in parallel, and the stricter rule wins. [BMF-2026 Rn. 24, 25]
 
+## BMF FAQ (as of October 2026)
+
+The BMF's FAQ page restates the three letters in plain language. It says itself that its answers are orientation only, with no legal or binding effect, so the letters stay the primary source. Points it adds, or states more clearly than the letters: [BMF-FAQ]
+
+- **Domestic business.** A business counts as domestic if it has its seat, management, or a fixed establishment involved in the supply in Germany. A foreign business that is only VAT-registered in Germany may say so on its invoice to explain why it sends no E-Rechnung, and the recipient may rely on that statement. [BMF-FAQ Q3]
+- **More cases where a sonstige Rechnung is allowed:** supplies to legal persons that are not businesses (for example many associations and state bodies) and certain supplies to consumers connected with real estate, in addition to small-amount invoices, travel tickets, and small businesses. [BMF-FAQ Q4, Q5]
+- **Public administration (B2G).** The VAT rules and the public-procurement rules (ERechV) apply side by side with no ranking, so the stricter one wins. Example from the FAQ: the VAT obligation starts above €250, the federal ERechV from €1,000, and the ERechV requires its own submission platform. [BMF-FAQ Q4a]
+- **BT-10 (Buyer reference) in B2B.** No Leitweg-ID is needed between businesses. Where a format makes BT-10 mandatory, a placeholder such as `-` is enough for VAT purposes. [BMF-FAQ Q6]
+- **Validation** is not a legal precondition, but it is recommended at creation and before sending. The BMF names no specific validator. [BMF-FAQ Q7]
+- **Collective invoice (Sammelrechnung).** The calendar month may be given as the supply period, so several supplies in one month can go on one E-Rechnung (§ 31 Abs. 4 UStDV). [BMF-FAQ Q7b]
+- **Corrections of single lines** may be made in a later E-Rechnung, as long as that document refers specifically and unambiguously to the original. [BMF-FAQ Q7b]
+- **Cash sales** follow the same rules: above €250 an E-Rechnung is due unless the issuer can and does use the transition rules. A till receipt can be issued first and corrected later by an E-Rechnung. [BMF-FAQ Q10]
+- **The recipient has a civil-law claim to receive an E-Rechnung**, even though not issuing one is not a fine-able offence. [BMF-FAQ Q12c]
+- **Viewer.** The tax authority runs a free viewer for XRechnung and ZUGFeRD files at https://www.e-rechnung.elster.de. [BMF-FAQ Q12a]
+- **Work in progress at the standards bodies:** a gross-price invoice model and harmonised use of invoice type codes (BT-3). [BMF-FAQ Q15]
+- The FAQ does not say that a PDF invoice became invalid in a new way. A plain PDF has been a sonstige Rechnung since 1 Jan 2025, allowed only under the transition rules. [BMF-FAQ Q2, Q11]
+
 ## Calculation and rounding
 
 - **The tax amount must be calculated exactly to the cent and rounded commercially** (kaufmännisch: 0.5 cent and above rounds away from zero). [BMF-2026 Rn. 17, UStAE 14.5 Abs. 20]
@@ -130,7 +147,9 @@ In an E-Rechnung, the mandatory items must be in the structured part. [BMF-2025,
 - **Tax engine for Germany:** compute tax to the cent and round commercially (half away from zero). Start with net-price invoices only; gross-price invoices need the attachment workaround and can wait.
 - **Field mapping:** take the KoSIT/FeRD mapping table as the reference for which model field goes into which BT, and keep a test per mandatory item.
 - **Validation severity:** treat format errors as blocking, and business-rule errors as blocking too, because the platform should only send files that conform technically, even though for VAT a business-rule error outside the mandatory items is harmless.
-- **Customer type:** store whether each customer is a business, set at onboarding, because that decides whether an E-Rechnung is required.
+- **Customer type:** store whether each customer is a business, and whether it is established in Germany, set at onboarding, because that decides whether an E-Rechnung is required. A tenant that is only VAT-registered in Germany needs an optional invoice note saying so. [BMF-FAQ Q3]
+- **BT-10 default:** when the buyer gives no reference, fill BT-10 with `-` so XRechnung validation passes. [BMF-FAQ Q6]
+- **Monthly collective invoices** need a supply period (a calendar month), not only a supply date, in the data model. [BMF-FAQ Q7b]
 - **Webhook and e-mail redelivery is safe** for the invoice file itself, because resending the identical file is allowed. Retries must never produce a changed file under the same invoice number.
 - **The platform acts as an external service provider** for its tenants, so the tenant stays responsible for compliance and the platform must make that possible (validation, complete fields, archive).
 - **Recurring invoices** are a document type of their own, linked to a contract reference.
@@ -141,7 +160,7 @@ In an E-Rechnung, the mandatory items must be in the structured part. [BMF-2025,
 ## Open questions
 
 - The mapping of mandatory items to EN 16931 fields is in [germany-en16931-mapping.md](germany-en16931-mapping.md). Check for a newer version of the KoSIT/FeRD table after the BMF letter of 15 Oct 2026.
-- The BMF FAQ page has not been read. The BMF website shows a bot check ("Security Check") to automated tools, so a person has to download it.
+- The ERechV threshold of €1,000 for federal B2G invoices is taken from the BMF FAQ, not from the ERechV itself. Check the regulation before the platform supports B2G.
 - Sections 5 (retention) and the transitional rules (Rn. 62 to 65) of the 2024 letter were not read closely, because the 2025 letter rewrote Rn. 60 and § 27 Abs. 38 UStG is already covered above.
 - EN 16931 calculation rules in detail (line versus document totals, allowances and charges). The tax rule itself is settled above (to the cent, commercial rounding). Source: the EN 16931 business rules as published with the KoSIT validator configuration.
 - Which XRechnung syntax to generate first (UBL or CII). CII is shared with ZUGFeRD, so it may be the cheaper first choice.
@@ -166,5 +185,8 @@ In an E-Rechnung, the mandatory items must be in the structured part. [BMF-2025,
   - Original: https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Umsatzsteuer/Umsatzsteuer-Anwendungserlass/2025-10-15-einfuehrung-obligatorische-e-rechnung.pdf
   - Copy read (Wayback Machine, 2026-09-16): https://web.archive.org/web/20260916164508/https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Umsatzsteuer/Umsatzsteuer-Anwendungserlass/2025-10-15-einfuehrung-obligatorische-e-rechnung.pdf?__blob=publicationFile&v=5
   - SHA-256 of the copy: `b47bd1b6f3f8386774a3d37976a385b3443537bc2a2891b64d2eb58cfee16d7f`
+- **[BMF-FAQ]** BMF, *Fragen und Antworten zur Einführung der obligatorischen (verpflichtenden) E-Rechnung zum 1. Januar 2025*, "Stand: Oktober 2026", page dated 29 Oct 2026. Cited by question number.
+  - Original: https://www.bundesfinanzministerium.de/Content/DE/FAQ/e-rechnung.html (saved as PDF from the browser by the owner on 2026-11-01, 12 pages)
+  - Local copy, not committed (the page carries a BMF copyright notice and is not clearly an official decree under § 5 Abs. 1 UrhG): `sources/bmf-faq-e-rechnung-2026-11-01.pdf`, SHA-256 `7e2bd7d58b28c79371821c0b64ab209c18467fcca70e5bf60a0b1ff1baa9aff0`
 - **[XRECHNUNG]** KoSIT, XRechnung: https://xeinkauf.de/xrechnung/
 - **[ZUGFERD]** FeRD, ZUGFeRD: https://www.ferd-net.de/standards/zugferd
