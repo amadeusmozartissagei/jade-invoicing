@@ -21,6 +21,7 @@ env:
   GOLANGCI_LINT_VERSION: v2.15.0
   REDOCLY_CLI_VERSION: 2.72.1
   SUPABASE_CLI_VERSION: 2.122.0
+  SQLC_VERSION: 1.31.1
 
 jobs:
   contract:
@@ -47,6 +48,9 @@ jobs:
           cache-dependency-path: apps/api/go.sum
       - name: Verify module checksums
         run: go mod verify
+      - uses: sqlc-dev/setup-sqlc@bac53b7fb28c039a6c7f5736fd1e89744021bdd6 # v5.0.0
+        with:
+          sqlc-version: ${{ env.SQLC_VERSION }}
       - name: Generated code is up to date
         run: |
           go generate ./...

@@ -69,3 +69,5 @@ The owner chose the recommended option for all ten. D10 was added after the firs
 - Verify the `jade_api` role through the transaction pooler, the `pgmq` grants, and the project's default privileges for new schemas.
 - Choose the decimal library and record its license.
 - Write the migration and its acceptance tests (design document, "Acceptance criteria for the migration").
+
+All three done on 2026-11-02; see ADR 0011. D2 stands: the role works through the pooler.

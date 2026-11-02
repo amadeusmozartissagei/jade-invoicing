@@ -66,7 +66,7 @@ This shows the mode works through the pooler for these types. It is a small samp
 
 **Negative, and how we handle it**
 
-- **Exec mode guesses parameter types from Go types**, and sends them as text. `[]byte` becomes `bytea`, so JSON must be passed as `string`, and ambiguous types (for example a `map[string]string`) are rejected. User-defined types may need registering with `pgx` or an explicit cast in SQL; found and fixed when the schema is written.
+- **Exec mode sends parameters as text without type OIDs**, so the server infers each type from the SQL and ambiguous parameters need a cast (corrected 2026-11-02 from reading `pgx`'s source, ADR 0011). `[]byte` becomes `bytea`, so JSON must be passed as `string`, and ambiguous types (for example a `map[string]string`) are rejected. User-defined types may need registering with `pgx` or an explicit cast in SQL; found and fixed when the schema is written.
 - **If the fallback is ever needed**, the simple protocol makes `pgx` quote and inline parameters on the client. That is still safe against SQL injection as long as values only go through parameters, never string building, which code review checks either way.
 - **One transaction per tenant request** adds `BEGIN` and `COMMIT` round trips. Warm queries from `fra1` took 1 to 2 ms in the spike (ADR 0003), so this costs a few milliseconds.
 - **Hand-written middleware** has to be tested like any other code (recovery, timeouts, auth).
@@ -77,7 +77,7 @@ This shows the mode works through the pooler for these types. It is a small samp
 
 - Run the test suite against the pooler as well as local Postgres, so a query that breaks exec mode is caught before deployment.
 - Pin `pgx` and `sqlc` versions in the skeleton (phase 0, step 4) and add the `sqlc` check to CI.
-- Confirm that `sqlc` parses the Supabase migration files as they are (including `create extension` statements) or document what it needs.
+- Confirm that `sqlc` parses the Supabase migration files as they are (including `create extension` statements) or document what it needs. Done 2026-11-02: it does, except the columns of a function that `returns table` (ADR 0011).
 - Choose the pool size after checking the Supabase Free pooler client limit.
 
 [sqlc-pgx]: https://docs.sqlc.dev/en/latest/guides/using-go-and-pgx.html

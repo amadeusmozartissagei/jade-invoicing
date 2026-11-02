@@ -1,6 +1,6 @@
 # Data model and first database schema (phase 1)
 
-- **Status:** Accepted (ADR 0007). The SQL comes next, against the acceptance criteria below.
+- **Status:** Accepted (ADR 0007). Implemented on 2026-11-02 in `supabase/migrations/20261102120000_app_schema_and_role.sql` to `20261102120300_app_rls_and_grants.sql` (ADR 0011); the acceptance criteria below are tested in `apps/api/internal/store/schema_test.go`.
 - **Date:** 2026-11-01
 - **Sources:** the domain notes in [`docs/domain/`](../domain/README.md), ADR 0003 (queues), ADR 0005 (pgx, RLS per transaction).
 
@@ -55,7 +55,7 @@ erDiagram
 - **Tenant column on every tenant table**, including child tables (`invoice_lines` and the like), so every RLS policy is the same one-line check and needs no join.
 - **Composite foreign keys** carry the tenant: for example `(tenant_id, customer_id) references customers (tenant_id, id)`. A reference to another tenant's row then fails in the database, even if a bug passes the wrong ID. Each parent table has `unique (tenant_id, id)` for this.
 - **Times:** `timestamptz`. Business dates (issue date, supply date, due date) are `date`, taken in the tenant's time zone.
-- **Money (D1):** `numeric(18,2)` for amounts, which caps them at two decimals. Tables with a `currency` column add `check (x = round(x, app.minor_units(currency)))`, where `app.minor_units` returns 2 for EUR and 0 for JPY; child tables (lines, breakdowns, payments) get the same check in the trigger that already reads the parent invoice. Quantity and unit price are `numeric(18,6)`, because EN 16931 limits neither (see [germany-en16931-calculation.md](../domain/germany-en16931-calculation.md#decimals)). Never a float, in SQL or Go.
+- **Money (D1):** plain `numeric` for amounts, checked by `app.fits_currency(x, currency)`: at most 16 integer digits (the contract's limit) and no more decimals than `app.minor_units(currency)`, which returns 2 for EUR and 0 for JPY. Not `numeric(18,2)`, because a column with a scale silently rounds `0.125` to `0.13` before any check sees it, and an amount with too many decimals must be rejected (ADR 0011). `invoices` has the check as a constraint; child tables (lines, breakdowns, payments) get it in the trigger that already reads the parent invoice. Quantity and unit price are `numeric(18,6)`, because EN 16931 limits neither (see [germany-en16931-calculation.md](../domain/germany-en16931-calculation.md#decimals)). Never a float, in SQL or Go; Go uses `shopspring/decimal`.
 - **Codes as `text` with `check` constraints**, not Postgres enums, because adding a value to a check is a plain migration and the values read the same in SQL, Go, and JSON.
 - **Personal data** columns are marked *PII* below. In phase 1 they are plain text; phase 4 adds field-level encryption and the retention and erasure rules.
 - `created_at` and `updated_at` on mutable tables, `created_at` only on insert-only tables.
@@ -65,11 +65,12 @@ erDiagram
 | Role | Used by | Rights |
 |---|---|---|
 | `postgres` | Migrations (Supabase CLI) | Owns every object |
-| `jade_api` | Go API and the queue worker | `LOGIN`, `NOBYPASSRLS`, owns nothing. Table rights listed per table below; no `TRUNCATE`, no DDL |
+| `jade_api` | Go API and the queue worker | `LOGIN`, `NOBYPASSRLS`, owns nothing. Table rights listed per table below; no `TRUNCATE`, no DDL. Created without a password, which is set by hand per environment (ADR 0011). Connects through the pooler as `jade_api.<project_ref>` |
 
-- Every table in `app` has RLS **enabled and forced**. Forced matters because a table owner otherwise bypasses its own policies.
+- Every table in `app` has RLS **enabled and forced**. Forced matters because a table owner otherwise bypasses its own policies. (On Supabase `postgres` has `BYPASSRLS` and bypasses them anyway; only `jade_api` is bound.)
+- `PUBLIC` may execute any new function by default, and a per-schema default privilege cannot take that away, so each migration that creates functions in `app` revokes `EXECUTE` from `PUBLIC` (ADR 0011).
 - `app.current_tenant_id()` returns `nullif(current_setting('app.tenant_id', true), '')::uuid`. Each request sets it with `set_config('app.tenant_id', $1, true)` at the start of its transaction (ADR 0005).
-- One policy per table: `using (tenant_id = app.current_tenant_id()) with check (tenant_id = app.current_tenant_id())`. On `tenants` the column is `id`.
+- One policy per table: `using (tenant_id = (select app.current_tenant_id()))`, with the same expression as `with check`. On `tenants` the column is `id`. The scalar subquery makes Postgres evaluate the setting once per statement, not once per row.
 - **Fail closed:** with no tenant set the function returns null, `tenant_id = null` is never true, and the query sees no rows.
 - **API key lookup** happens before the tenant is known, so RLS would hide the key. `app.find_api_key(prefix text)` is a `security definer` function owned by `postgres`, with `set search_path = ''`, executable only by `jade_api`. It returns the key's ID, tenant, hash, and expiry and revocation times for that one prefix; Go compares the hash in constant time.
 - The queue worker handles messages from many tenants. Each message carries its tenant ID, and the worker sets it per message, so the worker is under RLS like the API.
@@ -81,7 +82,7 @@ Rights for `jade_api` are given as S(elect), I(nsert), U(pdate), D(elete).
 
 ### `tenants` (S, U)
 
-A client company. Created by an admin script in phase 1; self-service signup comes with the dashboard.
+A client company. Created by an admin script in phase 1; self-service signup comes with the dashboard. `jade_api` may update only `name`, `timezone`, `jp_tax_rounding`, and `fiscal_year_end_month`, not the jurisdiction, currency, or status.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -111,7 +112,7 @@ One row per tenant (`tenant_id` is the PK): the seller details printed on invoic
 | `contact_name`, `contact_phone`, `contact_email` | BT-41, BT-42, BT-43 | *PII*. Required for XRechnung [BR-DE-2, BR-DE-5 to BR-DE-7] |
 | `iban`, `bic`, `account_name` | BT-84, BT-86, BT-85 | Payment instructions, required for XRechnung [BR-DE-1] |
 
-### `api_keys` (S, I, U)
+### `api_keys` (S, I, U: `revoked_at` and `last_used_at` only)
 
 | Column | Notes |
 |---|---|
@@ -120,7 +121,7 @@ One row per tenant (`tenant_id` is the PK): the seller details printed on invoic
 | `secret_hash` | bytea, SHA-256 of the secret part (check: 32 bytes) |
 | `expires_at`, `revoked_at`, `last_used_at` | timestamptz null |
 
-Key format: `jade_sk_<prefix>_<secret>`, with a random prefix and a 256-bit random secret. The secret is shown once at creation. A fast hash is enough because the secret is high-entropy random data, not a password: no one can guess it by brute force, so a slow hash such as bcrypt would only add latency to every request. `last_used_at` is updated at most once a minute per key, so authentication does not write on every request.
+Key format: `jade_sk_<prefix>_<secret>`, with a random prefix and a 256-bit random secret. The secret is shown once at creation. A fast hash is enough because the secret is high-entropy random data, not a password: no one can guess it by brute force, so a slow hash such as bcrypt would only add latency to every request. `last_used_at` is updated at most once a minute per key, so authentication does not write on every request. Revocation is final: a trigger rejects clearing or moving `revoked_at`, and the prefix and hash never change.
 
 ### `customers` (S, I, U)
 
@@ -142,7 +143,7 @@ The tenant's customers (the buyers).
 
 No hard delete through the API: a customer referenced by an issued invoice must stay. Erasure (phase 4) will blank the personal fields of this row; the invoices keep their own copies under the retention rules.
 
-### `number_series` (S, I, U)
+### `number_series` (S, I, U: `next_value` only)
 
 | Column | Notes |
 |---|---|
@@ -151,7 +152,7 @@ No hard delete through the API: a customer referenced by an issued invoice must 
 | `padding` | smallint, digits to pad the counter to |
 | `next_value` | bigint, starts at 1 |
 
-Each tenant gets a `default` series when it is created. Numbering is described [below](#invoice-numbering-d6).
+Each tenant gets a `default` series (empty prefix, padding 1) from a trigger when it is created. A trigger lets `next_value` move only up by one, and keeps `code`, `prefix`, and `padding` fixed, so numbers never skip and keep one format. Numbering is described [below](#invoice-numbering-d6).
 
 ### `tax_rates` (S; global, written only by migrations)
 
@@ -160,7 +161,7 @@ Each tenant gets a `default` series when it is created. Numbering is described [
 | `jurisdiction`, `tax_category`, `rate` | e.g. `DE`, `S`, `19.00` |
 | `valid_from`, `valid_to` | date; `valid_to` null while current |
 
-Seeded with DE 19 and 7 [UStG-12] and JP 10 and 8 [NTA-EN]. A line's rate must be valid on the supply date, so a rate change becomes new rows, not new code.
+Seeded with DE 19 and 7 [UStG-12] and JP 10 and 8 [NTA-EN]. A line's rate must be valid on the supply date, so a rate change becomes new rows, not new code. `valid_from` is the earliest supply date the platform accepts, not the date the law introduced the rate: 2023-10-01 for JP (the start of the Qualified Invoice System) and 2025-01-01 for DE (the start of the E-Rechnung transition).
 
 ### `invoices` (S, I, U, D: drafts only)
 
@@ -197,7 +198,7 @@ Invoices, credit notes, and corrected invoices (D3).
 
 Check constraints:
 
-- `draft` ⇔ `number`, `sequence_value`, `issue_date`, `issued_at`, and `retention_until` are all null; otherwise all are set.
+- `draft` ⇔ `number`, `sequence_value`, `issue_date`, `issued_at`, `retention_until`, and `tax_rounding` are all null; otherwise all are set.
 - `voided` ⇔ `voided_at` is set; `corrected` ⇔ `corrected_at` is set. Only `invoice` and `corrected_invoice` can be voided or corrected.
 - At most one issued correction per original: a partial unique index on `preceding_invoice_id` where `document_type = 'corrected_invoice'` and `status <> 'draft'`.
 - `credit_note` and `corrected_invoice` have `preceding_invoice_id`; `invoice` does not.
@@ -211,7 +212,7 @@ The totals are kept up to date on every draft change, so a draft shows its curre
 
 | Column | EN 16931 | Notes |
 |---|---|---|
-| `invoice_id`, `position` | BT-126 | `unique (invoice_id, position)` |
+| `invoice_id`, `position` | BT-126 | Primary key; `position` 1 to 500 |
 | `name` | BT-153 | |
 | `description` | BT-154 | |
 | `quantity` | BT-129 | `> 0` in phase 1 |
@@ -254,7 +255,7 @@ How and when the PDF is rendered is decided with the Typst spike (ADR 0006).
 
 | Column | Notes |
 |---|---|
-| `invoice_id` | Must be `issued`, not draft, voided, or corrected |
+| `invoice_id` | Must be an `issued` invoice or corrected invoice: not a draft, voided, or corrected document, and not a credit note |
 | `amount` | `> 0`, fits the currency |
 | `paid_on` | date |
 | `method`, `external_ref` | text, optional |
@@ -267,7 +268,7 @@ The invoice is paid when the sum of its payments reaches `amount_due` (D9). Reco
 |---|---|
 | `tenant_id`, `key` (PK) | The client's `Idempotency-Key` header |
 | `method`, `path`, `request_hash` | A replay with a different request is rejected |
-| `response_status`, `response_body` | Replayed on a repeat. Only `2xx` responses are stored, with one-time secrets removed. *PII* (a created customer) |
+| `response_status`, `response_body` | Replayed on a repeat. Only `2xx` responses are stored, with one-time secrets removed. The body is `bytea`, so the replay is byte for byte. *PII* (a created customer) |
 | `expires_at` | 24 hours after creation |
 
 A row is written in the same transaction as the change it belongs to, so there is no in-progress state. Concurrent repeats are detected with an advisory lock; see [api.md](api.md#idempotency-a3) (ADR 0008).
@@ -352,9 +353,10 @@ Triggers, so the rule holds even if the Go code has a bug:
 - **`invoices`, before update:** a draft may change freely, except that it may only move to `draft` or `issued`. An issued invoice may only move to `voided` or `corrected`, and only `status`, `voided_at`, `void_reason`, `corrected_at`, and `updated_at` may change; the trigger compares `to_jsonb(new)` and `to_jsonb(old)` without those keys. A voided or corrected invoice cannot change.
 - **`invoices`, before delete:** only drafts.
 - **`invoice_lines`, `invoice_tax_breakdowns`, `invoice_parties`, before insert, update, and delete:** the parent invoice must be a draft. The trigger reads the parent with `for share`, so it waits for a concurrent issue to commit and then sees the new status. When the parent is gone (a draft deleted with its lines by cascade), the change is allowed.
-- **`payments`:** before insert, the invoice must be `issued`.
+- **`payments`:** before insert, the invoice must be `issued` and not a credit note.
 - The same parent-reading triggers check that child amounts fit the invoice's currency (no yen decimals), since a `check` constraint cannot read another table.
-- **Insert-only tables** (`invoice_files`, `payments`, `events`, `webhook_attempts`, `audit_log`): `jade_api` has no `UPDATE` or `DELETE` grant, and a trigger rejects both for any role.
+- **Insert-only tables** (`invoice_files`, `payments`, `events`, `webhook_attempts`, `audit_log`): `jade_api` has no `UPDATE` or `DELETE` grant, and a statement-level trigger rejects `UPDATE`, `DELETE`, and `TRUNCATE` for any role.
+- **Errors** from these triggers use their own SQLSTATEs: `JD001` (an issued document, its children, or an insert-only row changed), `JD002` (a payment for an invoice that cannot be paid), `JD003` (too many decimals for the currency) (ADR 0011).
 
 ## Invoice numbering (D6)
 
@@ -436,13 +438,16 @@ Listed so the schema does not block them:
 - Dashboard users and roles (phase 3), quotas (phase 3), field-level encryption and erasure (phase 4).
 - Partitioning `audit_log` and `webhook_attempts`, and a hash chain over the audit log.
 
-## To verify when the schema is built
+## Checked when the schema was built (2026-11-02)
 
-- That a custom login role such as `jade_api` can connect through the Supabase transaction pooler, and how its user name is written.
-- Which grants a non-owner role needs to use `pgmq` (`send`, `read`, `archive`, `set_vt`).
-- That the chosen Go decimal library rounds half away from zero, with a test.
-- How the API writes to Supabase Storage without spreading the service-role key.
-- What default privileges the Supabase project applies to new schemas (criterion 9).
+Details in ADR 0011.
+
+- A custom login role connects through the Supabase transaction pooler as `<role>.<project_ref>`, in `pgx` exec mode, under RLS.
+- `pgmq` needs `USAGE` on its schema, `SELECT, INSERT, UPDATE, DELETE` on `pgmq.q_webhook_deliveries`, and `SELECT, INSERT` on `pgmq.a_webhook_deliveries`. The migration grants exactly these, and a test uses `send`, `read`, `set_vt`, `archive`, and `delete` as `jade_api`.
+- `shopspring/decimal` rounds half away from zero; a test pins it.
+- The project applies no default privileges to new schemas, but `PUBLIC` can execute new functions until that is revoked (criterion 9).
+
+Still open: how the API writes to Supabase Storage without spreading the service-role key (with the PDF slice).
 
 ## Sources
 
