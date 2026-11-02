@@ -321,8 +321,7 @@ output-options:
 
 ## Open questions
 
-- **Response validation in tests:** which library checks real responses against an OpenAPI 3.1 document in Go. Chosen with the skeleton (step 4), with its license.
-- **Request validation:** the generated code decodes JSON but does not enforce `pattern`, `maxLength`, `additionalProperties: false`, or currency decimals. The skeleton needs a validation layer (a library or hand-written checks) that produces the `errors` list with pointers; chosen in step 4.
+- **Response and request validation:** settled in ADR 0010 (`libopenapi-validator`, MIT; spec checks structure, Go checks domain rules such as currency decimals). The request validation layer itself is built with the first phase 1 endpoint.
 - **PDF rendering time** depends on the Typst spike (ADR 0006); the files endpoint is shaped to work either way.
 
 ## Sources

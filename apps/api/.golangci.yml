@@ -1,0 +1,22 @@
+# golangci-lint v2 configuration. The default "standard" set (errcheck,
+# govet, ineffassign, staticcheck, unused) plus a few linters that catch
+# real bugs in HTTP and database code.
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - errorlint
+    - gosec
+    - misspell
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+  exclusions:
+    generated: strict
+    rules:
+      - path: _test\.go
+        linters: [bodyclose, gosec, noctx]
+formatters:
+  enable:
+    - gofmt
+    - goimports

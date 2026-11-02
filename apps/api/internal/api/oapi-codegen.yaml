@@ -1,0 +1,12 @@
+# oapi-codegen configuration (docs/design/api.md, "Code generation check").
+# skip-prune keeps schemas used only by the webhooks section; nullable-type
+# lets merge patch tell an absent field from null.
+package: api
+output: api.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+output-options:
+  skip-prune: true
+  nullable-type: true

@@ -26,7 +26,9 @@ info:
     identifier: MIT
 servers:
   - url: http://localhost:8080/v1
-    description: Local development server (`apps/api`). The public URL is added with the first deployment.
+    description: Local development server (`apps/api`)
+  - url: https://jade-invoicing-api.vercel.app/v1
+    description: Public demo (Vercel, fra1). Synthetic data only; endpoints arrive during phase 1.
 security:
   - apiKey: []
 tags:

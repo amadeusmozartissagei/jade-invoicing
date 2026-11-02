@@ -1,0 +1,90 @@
+# Lint, test, and build on every push to main and every pull request.
+# Actions are pinned to commit SHAs (tags can be moved); the comment names the
+# release. Tool versions match the ones used locally (ADR 0010).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Cancel superseded runs on pull requests only; every main commit is
+  # deployed, so each one keeps its own result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GOLANGCI_LINT_VERSION: v2.15.0
+  REDOCLY_CLI_VERSION: 2.72.1
+  SUPABASE_CLI_VERSION: 2.122.0
+
+jobs:
+  contract:
+    name: OpenAPI lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npx --yes "@redocly/cli@${REDOCLY_CLI_VERSION}" lint openapi/openapi.yaml
+
+  api-lint:
+    name: API lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Verify module checksums
+        run: go mod verify
+      - name: Generated code is up to date
+        run: |
+          go generate ./...
+          go mod tidy
+          if [ -n "$(git status --porcelain -- .)" ]; then
+            git status --porcelain -- .
+            echo "::error::Run 'go generate ./...' and 'go mod tidy' in apps/api and commit the result"
+            exit 1
+          fi
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          # Build with the Go from go.mod, as locally: the release binary is
+          # built with Go 1.27.0, older than go.mod's 1.27.3.
+          install-mode: goinstall
+          working-directory: apps/api
+      - name: Build
+        run: go build -o /dev/null ./cmd/api
+
+  api-test:
+    name: API tests (with local Supabase Postgres)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Start Postgres and apply migrations
+        run: |
+          supabase db start
+          supabase migration up --local
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Test
+        working-directory: apps/api
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: go test -race -count=1 ./...
