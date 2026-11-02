@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/problem"
 )
 
@@ -15,12 +17,17 @@ type Config struct {
 	Logger *slog.Logger
 	// Commit is the deployed Git commit, shown by /healthz. Empty locally.
 	Commit string
+	// DB is the pool for tenant requests, connected as jade_api. Nil when
+	// JADE_API_DATABASE_URL is not set: /healthz still works, and /v1
+	// answers 500 with "database not configured" in the log.
+	DB *pgxpool.Pool
 }
 
 // New returns the API's root handler.
 func New(cfg Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health(cfg.Commit))
+	registerV1(mux, cfg.Logger, cfg.DB)
 
 	h := problemsForUnmatched(mux)
 	h = limitBody(h)

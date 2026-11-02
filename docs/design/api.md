@@ -321,7 +321,7 @@ output-options:
 
 ## Open questions
 
-- **Response and request validation:** settled in ADR 0010 (`libopenapi-validator`, MIT; spec checks structure, Go checks domain rules such as currency decimals). The request validation layer itself is built with the first phase 1 endpoint.
+- **Response and request validation:** settled in ADR 0010 (`libopenapi-validator`, MIT; spec checks structure, Go checks domain rules such as currency decimals). The request validation layer was built with the first phase 1 endpoints (ADR 0012).
 - **PDF rendering time** depends on the Typst spike (ADR 0006); the files endpoint is shaped to work either way.
 
 ## Sources

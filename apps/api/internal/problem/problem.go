@@ -27,11 +27,15 @@ type Kind struct {
 // Problem types used by the transport layer. Domain errors are added with the
 // handlers that return them.
 var (
-	BadRequest       = Kind{"bad_request", http.StatusBadRequest, "Bad request"}
-	NotFound         = Kind{"not_found", http.StatusNotFound, "Not found"}
-	MethodNotAllowed = Kind{"method_not_allowed", http.StatusMethodNotAllowed, "Method not allowed"}
-	ContentTooLarge  = Kind{"content_too_large", http.StatusRequestEntityTooLarge, "Content too large"}
-	Internal         = Kind{"internal_error", http.StatusInternalServerError, "Internal error"}
+	BadRequest           = Kind{"bad_request", http.StatusBadRequest, "Bad request"}
+	Unauthorized         = Kind{"unauthorized", http.StatusUnauthorized, "Unauthorized"}
+	Forbidden            = Kind{"forbidden", http.StatusForbidden, "Forbidden"}
+	NotFound             = Kind{"not_found", http.StatusNotFound, "Not found"}
+	MethodNotAllowed     = Kind{"method_not_allowed", http.StatusMethodNotAllowed, "Method not allowed"}
+	ContentTooLarge      = Kind{"content_too_large", http.StatusRequestEntityTooLarge, "Content too large"}
+	UnsupportedMediaType = Kind{"unsupported_media_type", http.StatusUnsupportedMediaType, "Unsupported media type"}
+	ValidationFailed     = Kind{"validation_failed", http.StatusUnprocessableEntity, "Validation failed"}
+	Internal             = Kind{"internal_error", http.StatusInternalServerError, "Internal error"}
 )
 
 // New builds the problem body for kind. detail may be empty.

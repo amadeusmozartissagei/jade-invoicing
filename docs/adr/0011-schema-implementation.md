@@ -80,7 +80,7 @@ Phase 0, step 5 turns the data model (ADR 0007, [`docs/design/data-model.md`](..
 ## Follow-ups
 
 - Push the migrations to the Supabase project, set `jade_api`'s password, and run the criterion 9 check there. Done 2026-11-02: `supabase db push` applied all five migrations; the password was generated into the ignored `.env.local` and only its SCRAM verifier was sent; `jade_api` logs in through the pooler without `BYPASSRLS`, sees no rows without a tenant, cannot write `tax_rates` or create tables; `anon` and `authenticated` have no privileges in `app` or on the queue.
-- Set `JADE_API_DATABASE_URL` on the Vercel project when the first endpoint needs the database.
+- Set `JADE_API_DATABASE_URL` on the Vercel project when the first endpoint needs the database. The server reads it since ADR 0012; setting it on Vercel waits for the owner.
 - Run the schema tests through the transaction pooler with a real `jade_api` login (ADR 0005 follow-up).
 - Decide how the API writes to Supabase Storage without the service-role key (with the PDF slice).
 - Webhook slice: the URL check in the database only requires `https://`. The sender must refuse private, loopback, and link-local addresses after DNS resolution and on every redirect (SSRF).

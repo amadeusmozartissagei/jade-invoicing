@@ -18,7 +18,7 @@ func TestKindsMatchErrorsDoc(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := strings.ReplaceAll(string(doc), "\r\n", "\n")
-	for _, k := range []Kind{BadRequest, NotFound, MethodNotAllowed, ContentTooLarge, Internal} {
+	for _, k := range []Kind{BadRequest, Unauthorized, Forbidden, NotFound, MethodNotAllowed, ContentTooLarge, UnsupportedMediaType, ValidationFailed, Internal} {
 		want := fmt.Sprintf("### `%s`\n\n`%d` · **%s.**", k.Code, k.Status, k.Title)
 		if !strings.Contains(text, want) {
 			t.Errorf("errors.md has no entry %q", want)

@@ -29,6 +29,21 @@ func Config(url string) (*pgxpool.Config, error) {
 	return cfg, nil
 }
 
+// New creates a pool for url without connecting: connections open on first
+// use, so the server starts, and /healthz answers, while the database is
+// paused or unreachable.
+func New(url string) (*pgxpool.Pool, error) {
+	cfg, err := Config(url)
+	if err != nil {
+		return nil, err
+	}
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create pool: %w", err)
+	}
+	return pool, nil
+}
+
 // Open connects to url and checks the connection.
 func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := Config(url)

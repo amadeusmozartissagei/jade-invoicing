@@ -120,3 +120,37 @@ An AI reviewing AI-written code can share its blind spots. Steps 2 and 5 are the
 - **A mistake during the fixes.** The agent ran `git checkout --` on a new test file that had only been marked intent-to-add, which restored the empty index version and wiped the file. Nothing had been committed, so it was rewritten from the session's copy, and the mutation checks were run again on the rewritten tests (all failed when broken, all passed after a reset). Lesson: never use `git checkout --` to undo an edit on a file that has no committed version.
 - **Security review.** The `/security-review` command could not run on uncommitted work (it diffs against `origin/HEAD`), so the agent reviewed the working tree itself against the security checklist; this is a self-review, not an independent one. Catalog queries showed no `security definer` functions in `pgmq` and a fixed `search_path` on every function in `app`. Two real findings: `jade_api` could update every column of `api_keys` (replace a hash, un-revoke a key) and of `number_series` (skip invoice numbers). Both now have column-level grants plus guard triggers, with a test that fails when either guard is removed. Two notes went into ADR 0011: RLS does not stop SQL injection, since the role sets its own tenant, and the webhook sender must block private addresses (SSRF).
 - **Schema on the project (2026-11-02).** Hamza left the order to the agent. It checked that the project had no `app` schema, role, or queue, ran `supabase db push --dry-run`, then pushed. It generated `jade_api`'s password straight into the ignored `.env.local` without printing it and sent the server only a SCRAM verifier computed locally, so the plaintext never reached a statement log. Read-only checks then confirmed the role, RLS, and criterion 9 on the project itself.
+
+### 2026-11-02: Phase 1 slice 7a: tenants, API key auth, request validation (ADR 0012)
+
+- **What the agent did.** It read the design documents and ADRs, proposed the slice with nine acceptance criteria, and put three questions to the owner. After he approved the plan in plan mode, it wrote:
+  - the key package
+  - the admin command
+  - the authentication and transaction middleware
+  - the run-time validation layer (embedded contract, field-error mapping)
+  - `GET /v1/tenant` and `GET`/`PUT /v1/seller-profile`
+  - unit, database, and contract tests
+- **What the human decided.** Hamza chose base32 keys, put the seller-profile endpoints into the slice (so validation is tested on the real `allOf` + `unevaluatedProperties` schema), and chose that a missing database URL keeps `/healthz` up while `/v1` answers `500`. The agent made the remaining choices and recorded them in ADR 0012 with alternatives, for his review: buffering responses until commit, validating after authentication, embedding a generated copy of the spec, and finding unknown fields by walking the schema.
+- **How it was checked.**
+  - The validator's real output was probed first. That showed the false positive, the escaped instance paths, the two failures for nullable `oneOf`, and that `required` names exist only in message text; the mapping was written against that output.
+  - All tests passed on the first full run, so the agent removed each check on purpose: hash compare, expiry, revocation, suspension, rollback on `4xx`, commit-before-send, and the unknown-field fix. Each removal failed its test.
+  - Lint found CRLF line endings that the agent's own scripted edits had introduced on Windows; they were fixed.
+  - An end-to-end run against the local stack, with the server logged in as `jade_api`, found that timestamps came back in the machine's `+07:00` zone instead of UTC. That is fixed, and a test checks it.
+- **Review pass.** `/code-review` (high) reported eight findings. Seven were fixed:
+  - detail truncation that could split a UTF-8 character
+  - a null-branch filter that matched display text
+  - no deadline on database work
+  - an ignored write error when printing the key
+  - the contract parse on the first request
+  - Go type names in a parameter error
+  - two unused fields
+
+  One was left for later (the store tests' fixture duplicates the admin insert; noted in ADR 0012).
+- **Security review.** It was again done by the agent on the working tree, because the command needs a committed diff; this is a self-review, not an independent one. Checks:
+  - SQL is parameter-only.
+  - The key and the database URL never reach logs. pgx redacts passwords from URL parse errors only on a best-effort basis, so the server now prints a fixed message instead.
+  - Responses do not reveal which keys exist.
+  - Validation runs only after authentication.
+  - Go's regex engine is linear-time.
+
+  Open, in ADR 0012: unauthenticated lookups cost one query each until rate limiting in phase 4.

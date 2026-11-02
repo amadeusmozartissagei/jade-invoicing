@@ -12,6 +12,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/db"
 	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/httpserver"
 )
 
@@ -29,11 +32,27 @@ func run(log *slog.Logger) error {
 		port = "8080" // the local server in openapi.yaml
 	}
 
+	// The API's own role, jade_api, through the transaction pooler. Never
+	// logged: the URL holds the password.
+	var pool *pgxpool.Pool
+	if url := os.Getenv("JADE_API_DATABASE_URL"); url != "" {
+		var err error
+		if pool, err = db.New(url); err != nil {
+			// pgx redacts passwords from a URL it cannot parse only on a
+			// best-effort basis, so its message is not logged.
+			return errors.New("JADE_API_DATABASE_URL is not a valid database URL")
+		}
+		defer pool.Close()
+	} else {
+		log.Warn("JADE_API_DATABASE_URL is not set; /v1 endpoints will answer 500")
+	}
+
 	srv := &http.Server{
 		Addr: ":" + port,
 		Handler: httpserver.New(httpserver.Config{
 			Logger: log,
 			Commit: os.Getenv("VERCEL_GIT_COMMIT_SHA"),
+			DB:     pool,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

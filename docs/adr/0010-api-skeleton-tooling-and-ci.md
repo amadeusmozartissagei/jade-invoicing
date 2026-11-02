@@ -78,7 +78,7 @@ Both libraries also showed the same trap: when a body has another error, they re
 
 ## Follow-ups
 
-- Phase 1, first endpoint: the request validation middleware and the mapping to `errors`, with tests for the false `unevaluatedProperties` reports.
+- Phase 1, first endpoint: the request validation middleware and the mapping to `errors`, with tests for the false `unevaluatedProperties` reports. Done 2026-11-02 (ADR 0012).
 - Step 5: the schema migration and its acceptance tests run in the CI database set up here; set up `sqlc` with the first queries.
 - Run the database tests against the transaction pooler as well (ADR 0005). On 2026-11-01 the two smoke tests in `internal/db` passed against the Supabase pooler in exec mode.
 
