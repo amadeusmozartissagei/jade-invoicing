@@ -1,6 +1,6 @@
 # Interview notes: phase 0 (foundation)
 
-Likely questions about the foundation of jade-invoicing, with short answers in plain language. Each answer names the document that has the full reasoning. Phase 0 ended with the schema migration (step 5); the end-of-phase quiz revises any answer that turns out shaky.
+Likely questions about the foundation of jade-invoicing, with short answers in plain language. Each answer names the document that has the full reasoning. Phase 0 ended with the schema migration (step 5); the design quiz, held once development is done, revises any answer that turns out shaky.
 
 ## The project
 

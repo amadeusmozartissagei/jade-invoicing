@@ -45,6 +45,6 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:44322/postgres go tes
 
 ## Database role
 
-The API connects as `jade_api`, which owns nothing and is under row-level security (ADR 0007, ADR 0011). The migrations create it without a password, so no secret is in the repository. On a Supabase project, after `supabase db push`, set the password once as `postgres` with `psql`'s `\password jade_api` (it prompts, and sends only a hash), store it with the deployment's other secrets, and connect through the transaction pooler (port 6543) with the user name `jade_api.<project_ref>`.
+The API connects as `jade_api`, which owns nothing and is under row-level security (ADR 0007, ADR 0011). The migrations create it without a password, so no secret is in the repository. On a Supabase project, after `supabase db push`, set the password once as `postgres` with `psql`'s `\password jade_api` (it prompts, and sends only a hash), or send a SCRAM verifier you computed yourself, store it with the deployment's other secrets (locally `JADE_API_DATABASE_URL` in the ignored `.env.local`), and connect through the transaction pooler (port 6543) with the user name `jade_api.<project_ref>`.
 
 Tests never log in as `jade_api`: they connect as `postgres` and run `SET ROLE jade_api`, which needs a direct connection such as the local stack's.

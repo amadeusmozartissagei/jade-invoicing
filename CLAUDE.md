@@ -128,7 +128,7 @@ Documentation that must stay current:
 - `docs/interview-notes/phase-N.md`: likely interview questions on that phase and clear answers in plain language.
 - `docs/ai-workflow.md`: how the AI agent was used, what humans decided, and how quality was checked (tests, CI, reviews). This is honest material for the "you used AI?" interview question.
 
-At the end of each phase, quiz Hamza on the design: why this, what fails if X goes down, and how it scales. Revise the notes wherever his explanation is shaky.
+Quiz Hamza on the design (why this, what fails if X goes down, how it scales) and revise the notes wherever his explanation is shaky. Decided 2026-11-02: the quizzes are held back until development is done, then cover every phase; do not offer one at the end of each phase. Keep writing each phase's interview notes as it goes.
 
 He still practices live coding (LeetCode easy/medium in Go or Python) on his own. Live interview rounds are usually without AI.
 
