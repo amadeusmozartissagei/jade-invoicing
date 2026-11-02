@@ -75,7 +75,7 @@ A Go server with a health endpoint, request IDs, panic recovery, structured logg
 Tests send real requests to the handler and check the responses against `openapi.yaml` with `libopenapi-validator`. A separate test makes sure the checker actually rejects a broken response, so the contract tests cannot pass by accident (ADR 0010).
 
 **What does CI check?**
-The OpenAPI file is linted; the Go code is linted, vetted, built, and checked for stale generated code; and the tests run with the race detector against the same Postgres image Supabase uses, with the migrations applied (the first run on GitHub is still to confirm this setup). Database tests are skipped on a laptop without a database, but fail in CI if the database is missing, so a broken CI setup cannot hide them (ADR 0010).
+The OpenAPI file is linted; the Go code is linted, vetted, built, and checked for stale generated code; and the tests run with the race detector against the same Postgres image Supabase uses, with the migrations applied. Database tests are skipped on a laptop without a database, but fail in CI if the database is missing, so a broken CI setup cannot hide them (ADR 0010).
 
 **Why pin GitHub Actions to commit SHAs?**
 A tag like `v7` can be moved to point at different code, so a compromised action could run in my CI without any change in my repository. A SHA cannot be moved.
