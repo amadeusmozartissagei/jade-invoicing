@@ -77,6 +77,9 @@ Tests send real requests to the handler and check the responses against `openapi
 **What does CI check?**
 The OpenAPI file is linted; the Go code is linted, vetted, built, and checked for stale generated code; and the tests run with the race detector against the same Postgres image Supabase uses, with the migrations applied. Database tests are skipped on a laptop without a database, but fail in CI if the database is missing, so a broken CI setup cannot hide them (ADR 0010).
 
+**Did anything go wrong setting up the local stack?**
+Yes: on Windows the database container could not bind port 54322. Supabase's default ports sit inside Windows' dynamic port range, and Hyper-V had reserved a block that included them. Running `netsh interface ipv4 show excludedportrange protocol=tcp` showed the reserved ranges. Instead of an admin workaround that can break again after a reboot, I moved the local ports to 443xx, outside the dynamic range, and wrote the reason into `supabase/config.toml`.
+
 **Why pin GitHub Actions to commit SHAs?**
 A tag like `v7` can be moved to point at different code, so a compromised action could run in my CI without any change in my repository. A SHA cannot be moved.
 
