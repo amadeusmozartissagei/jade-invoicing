@@ -74,15 +74,16 @@ type AppEvent struct {
 }
 
 type AppIdempotencyKey struct {
-	TenantID       uuid.UUID
-	Key            string
-	Method         string
-	Path           string
-	RequestHash    []byte
-	ResponseStatus int16
-	ResponseBody   []byte
-	CreatedAt      time.Time
-	ExpiresAt      time.Time
+	TenantID        uuid.UUID
+	Key             string
+	Method          string
+	Path            string
+	RequestHash     []byte
+	ResponseStatus  int16
+	ResponseBody    []byte
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	ResponseHeaders []byte
 }
 
 type AppInvoice struct {

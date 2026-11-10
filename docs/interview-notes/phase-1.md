@@ -81,3 +81,38 @@ Supabase does not say whether its own scheduled jobs count as user activity. Ver
 - GitHub disables schedules after 60 days without commits in a public repository.
 - `select 1` might not be "enough" activity. Supabase emails a warning a week before pausing, and the fallback is a heartbeat write.
 
+
+## Customers and idempotency keys (slice 7b, ADR 0014)
+
+**What problem do idempotency keys solve?**
+A client sends `POST /v1/customers`, the network times out, and it cannot tell whether the customer was created. With an `Idempotency-Key` it simply retries: if the first request committed, it gets the same response back (marked `Idempotent-Replayed: true`) and nothing is created twice.
+
+**Where is the stored response written, and why there?**
+In the same database transaction as the customer itself. Either both commit or neither does. There is no "in progress" row a crash could leave behind, so no recovery job is needed.
+
+**What happens if two retries arrive at the same moment?**
+The first takes a Postgres advisory lock on (tenant, key) that lasts until its transaction ends. The second tries the lock without waiting, fails, and gets `409` with `Retry-After: 1`. When it retries after the first committed, it gets the replay. The lock is transaction-scoped, so it works behind Supabase's transaction pooler.
+
+**What did the review find about that?**
+Every request also records "last used" on its API key row. The first request in each minute held that row lock until commit, so a second request with the same key queued behind it instead of getting the `409`. The update now uses `for update skip locked`: if the row is busy, it skips the touch. A test holds the row lock and checks that a request still answers at once.
+
+**Why not store error responses too?**
+A failed request changed nothing. Not storing it lets the client fix the problem (say, a duplicate `external_ref`) and retry with the same key. The IETF draft leaves this choice to the server.
+
+**What if the same key comes with a different body?**
+The fingerprint is a SHA-256 over method, path, and body. A mismatch is `422 idempotency_key_reused`, because it is almost always a client bug: reusing a key for a new request.
+
+**How long are keys kept, and why does it matter for GDPR?**
+24 hours. The stored body of a created customer contains personal data, so a daily `pg_cron` job deletes expired rows. An expired key is treated as new.
+
+**How is customer personal data protected now, before encryption?**
+- It is never written to logs; a test checks that.
+- The audit log records which fields changed, never the values.
+- The only list filter is `external_ref`, which is not personal data, so encrypting personal columns in phase 4 will not break any query.
+- RLS keeps every tenant's customers invisible to other tenants.
+
+**Why keyset pagination?**
+Page 1,000 costs the same as page 1, and new rows do not shift the pages. The cursor carries the last row's `(created_at, id)` and a hash of the filters, so a cursor reused with other filters is rejected instead of returning a wrong page. A test pages through 250 customers, most of them with the same `created_at`, and gets each exactly once.
+
+**Why no `If-Match` on customer `PATCH`?**
+The contract makes it last write wins. Issued invoices copy the customer's details at issue, so editing a customer never changes an issued document. Drafts of invoices do use `If-Match`.

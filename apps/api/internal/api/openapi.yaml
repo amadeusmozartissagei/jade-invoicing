@@ -331,6 +331,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Customer'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
@@ -491,6 +492,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Invoice'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
@@ -540,6 +542,7 @@ paths:
           description: Deleted
           headers:
             Request-Id: {$ref: '#/components/headers/RequestId'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
@@ -650,6 +653,7 @@ paths:
                   data:
                     type: array
                     items: {$ref: '#/components/schemas/InvoiceFile'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
@@ -677,6 +681,7 @@ paths:
                   data:
                     type: array
                     items: {$ref: '#/components/schemas/Payment'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
@@ -792,6 +797,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WebhookEndpoint'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}

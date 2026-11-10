@@ -81,13 +81,13 @@ Retrying a `POST` after a timeout must not create a second invoice, payment, or 
 - **Which requests:** every `POST` under `/v1` requires `Idempotency-Key`. A missing key gets `400 idempotency_key_required`. One rule for all `POST`s is easier to document and to test than a per-endpoint list. `PATCH` and `DELETE` are protected by `If-Match` instead (A4).
 - **The key:** 1 to 255 printable ASCII characters; a UUID v4 is recommended. The draft defines the header as a Structured Field string, which is quoted on the wire (`Idempotency-Key: "8e03978e-…"`); the server accepts that form and also a bare value, since many clients send one. Scoped to the tenant: two tenants can use the same key.
 - **Fingerprint:** SHA-256 over the method, the path, and the raw body bytes. A repeat must send the same bytes; the same key with a different fingerprint gets `422 idempotency_key_reused`.
-- **Lifetime:** 24 hours from the first successful request. A daily `pg_cron` job deletes expired rows.
+- **Lifetime:** 24 hours from the first successful request. An expired key is treated as new. A daily `pg_cron` job (`app.delete_expired_idempotency_keys()`) deletes expired rows (ADR 0014).
 
 How a request with a key runs, inside the one transaction that every tenant request already uses (ADR 0005):
 
 1. `select pg_try_advisory_xact_lock(hashtextextended(tenant_id || ':' || key, 0))`. If another transaction holds it, the same key is being processed right now: answer `409 idempotency_key_in_use` with `Retry-After: 1`.
 2. Look up `(tenant_id, key)` in `idempotency_keys`. If found and not expired: same fingerprint, replay the stored status and body with the header `Idempotent-Replayed: true`; different fingerprint, `422`.
-3. Otherwise run the handler. On a `2xx`, insert the key row with the status and body, and commit everything together.
+3. Otherwise run the handler. On a `2xx`, insert the key row with the status, the body, and the headers `Content-Type`, `Location`, and `ETag` (never `Request-Id`), and commit everything together. A replay sends those headers again (ADR 0014).
 4. On a `4xx` or `5xx`, roll back. Nothing is stored, and the client may retry with the same key.
 
 Why this design:

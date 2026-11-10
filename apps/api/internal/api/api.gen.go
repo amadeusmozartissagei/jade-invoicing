@@ -4191,6 +4191,25 @@ func (response GetCustomer200JSONResponse) VisitGetCustomerResponse(w http.Respo
 	return err
 }
 
+type GetCustomer400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetCustomer400ApplicationProblemPlusJSONResponse) VisitGetCustomerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RequestId != nil {
+		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
+	}
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCustomer401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
@@ -4819,6 +4838,25 @@ func (response DeleteInvoice204Response) VisitDeleteInvoiceResponse(w http.Respo
 	return nil
 }
 
+type DeleteInvoice400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteInvoice400ApplicationProblemPlusJSONResponse) VisitDeleteInvoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RequestId != nil {
+		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
+	}
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteInvoice401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
@@ -4990,6 +5028,25 @@ func (response GetInvoice200JSONResponse) VisitGetInvoiceResponse(w http.Respons
 		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
 	}
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetInvoice400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetInvoice400ApplicationProblemPlusJSONResponse) VisitGetInvoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RequestId != nil {
+		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
+	}
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -5360,6 +5417,25 @@ func (response ListInvoiceFiles200JSONResponse) VisitListInvoiceFilesResponse(w 
 	return err
 }
 
+type ListInvoiceFiles400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListInvoiceFiles400ApplicationProblemPlusJSONResponse) VisitListInvoiceFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RequestId != nil {
+		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
+	}
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListInvoiceFiles401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
@@ -5664,6 +5740,25 @@ func (response ListPayments200JSONResponse) VisitListPaymentsResponse(w http.Res
 		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
 	}
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPayments400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListPayments400ApplicationProblemPlusJSONResponse) VisitListPaymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RequestId != nil {
+		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
+	}
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7333,6 +7428,25 @@ func (response GetWebhookEndpoint200JSONResponse) VisitGetWebhookEndpointRespons
 		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
 	}
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWebhookEndpoint400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetWebhookEndpoint400ApplicationProblemPlusJSONResponse) VisitGetWebhookEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RequestId != nil {
+		w.Header().Set("Request-Id", fmt.Sprint(*response.Headers.RequestId))
+	}
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }

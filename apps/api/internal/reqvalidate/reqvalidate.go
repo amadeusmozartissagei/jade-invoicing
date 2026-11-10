@@ -38,6 +38,7 @@ const (
 	CodeTooLong       = "too_long"
 	CodeTooManyItems  = "too_many_items"
 	CodeOutOfRange    = "out_of_range"
+	CodeNotAllowed    = "not_allowed"
 )
 
 // maxDetail caps a field error's detail; the library's reason can quote the
@@ -116,11 +117,12 @@ func (v *Validator) Check(r *http.Request, method, specPath string, body []byte)
 	}
 
 	out.Fields = fieldErrors(failures)
-	if root := v.bodySchema(method, specPath, req.Header.Get("Content-Type")); root != nil {
-		var doc any
-		dec := json.NewDecoder(bytes.NewReader(body))
-		dec.UseNumber()
-		if dec.Decode(&doc) == nil {
+	var doc any
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	if dec.Decode(&doc) == nil {
+		nullNotAllowed(doc, out.Fields)
+		if root := v.bodySchema(method, specPath, req.Header.Get("Content-Type")); root != nil {
 			unknownFields(root, doc, "", &out.Fields)
 		}
 	}
@@ -219,6 +221,62 @@ func detail(f *verrors.SchemaValidationFailure) string {
 		d = strings.ToValidUTF8(d[:maxDetail], "") + "…"
 	}
 	return d
+}
+
+// nullNotAllowed turns a type failure on a JSON null into not_allowed
+// (errors.md: "setting a non-nullable field to null"). Nullable fields accept
+// null, so a null that fails is always a field that cannot be cleared, such
+// as a customer's name in a merge patch.
+func nullNotAllowed(doc any, fields []api.FieldError) {
+	for i, f := range fields {
+		if f.Code != CodeInvalidFormat || f.Pointer == "" {
+			continue
+		}
+		if v, ok := lookup(doc, f.Pointer); ok && v == nil {
+			fields[i].Code, fields[i].Detail = CodeNotAllowed, nullDetail(f.Pointer)
+		}
+	}
+}
+
+// nullDetail names the field: "name cannot be null", or for an array
+// element "lines/0 cannot be null", since "0" alone names nothing.
+func nullDetail(ptr string) string {
+	cut := strings.LastIndex(ptr, "/")
+	last := ptr[cut+1:]
+	if _, err := strconv.Atoi(last); err == nil && cut > 0 {
+		prev := strings.LastIndex(ptr[:cut], "/")
+		return unescape(ptr[prev+1:cut]) + "/" + last + " cannot be null"
+	}
+	return unescape(last) + " cannot be null"
+}
+
+// lookup resolves a JSON Pointer (RFC 6901) in a decoded document.
+func lookup(doc any, ptr string) (any, bool) {
+	cur := doc
+	for _, tok := range strings.Split(ptr, "/")[1:] {
+		tok = unescape(tok)
+		switch c := cur.(type) {
+		case map[string]any:
+			v, ok := c[tok]
+			if !ok {
+				return nil, false
+			}
+			cur = v
+		case []any:
+			i, err := strconv.Atoi(tok)
+			if err != nil || i < 0 || i >= len(c) {
+				return nil, false
+			}
+			cur = c[i]
+		default:
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+func unescape(tok string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(tok, "~1", "/"), "~0", "~")
 }
 
 // unknownFields reports every property in v that the schema s does not

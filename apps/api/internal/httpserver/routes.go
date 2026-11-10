@@ -3,6 +3,7 @@ package httpserver
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -20,7 +21,7 @@ type handlers struct {
 
 // registerV1 routes the implemented /v1 operations. Each one runs
 //
-//	authenticate → validateRequests → generated wrapper → handler
+//	authenticate → [idempotent, for POST] → validateRequests → generated wrapper → handler
 //
 // so the handler gets a decoded, contract-valid request and the tenant's
 // transaction in its context.
@@ -34,7 +35,13 @@ func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool) {
 
 	auth := authenticate(log, pool)
 	validate := validateRequests(log)
+	idem := idempotent(log)
 	route := func(pattern string, h http.HandlerFunc) {
+		if strings.HasPrefix(pattern, http.MethodPost+" ") {
+			// Every POST needs an Idempotency-Key (ADR 0008, A3).
+			mux.Handle(pattern, auth(idem(validate(h))))
+			return
+		}
 		mux.Handle(pattern, auth(validate(h)))
 	}
 
@@ -42,6 +49,10 @@ func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool) {
 	route("GET /v1/tenant", wrapper.GetTenant)
 	route("GET /v1/seller-profile", wrapper.GetSellerProfile)
 	route("PUT /v1/seller-profile", wrapper.PutSellerProfile)
+	route("GET /v1/customers", wrapper.ListCustomers)
+	route("POST /v1/customers", wrapper.CreateCustomer)
+	route("GET /v1/customers/{id}", wrapper.GetCustomer)
+	route("PATCH /v1/customers/{id}", wrapper.PatchCustomer)
 }
 
 // requestError and bodyError answer a parameter or body that passed

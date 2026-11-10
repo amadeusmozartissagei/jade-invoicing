@@ -150,3 +150,16 @@ func TestEscape(t *testing.T) {
 		}
 	}
 }
+
+func TestNullDetail(t *testing.T) {
+	for ptr, want := range map[string]string{
+		"/name":           "name cannot be null",
+		"/lines/0":        "lines/0 cannot be null",
+		"/a~1b":           "a/b cannot be null",
+		"/lines/2/amount": "amount cannot be null",
+	} {
+		if got := nullDetail(ptr); got != want {
+			t.Errorf("nullDetail(%q) = %q, want %q", ptr, got, want)
+		}
+	}
+}

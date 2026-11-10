@@ -52,32 +52,11 @@ func validateRequests(log *slog.Logger) func(http.Handler) http.Handler {
 			specPath := strings.TrimPrefix(path, "/v1")
 
 			var body []byte
-			if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
-				want := "application/json"
-				if method == http.MethodPatch {
-					want = "application/merge-patch+json"
-				}
-				if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != want {
-					problem.Write(w, problem.New(problem.UnsupportedMediaType, id, "Send the body as "+want+"."))
+			if hasBody(method) {
+				var ok bool
+				if body, ok = readBody(w, r); !ok {
 					return
 				}
-				var err error
-				body, err = io.ReadAll(r.Body)
-				if err != nil {
-					var tooLarge *http.MaxBytesError
-					if errors.As(err, &tooLarge) {
-						problem.Write(w, problem.New(problem.ContentTooLarge, id,
-							fmt.Sprintf("Request bodies are limited to %d bytes.", MaxBodyBytes)))
-						return
-					}
-					problem.Write(w, problem.New(problem.BadRequest, id, "The request body could not be read."))
-					return
-				}
-				if !json.Valid(body) {
-					problem.Write(w, problem.New(problem.BadRequest, id, "The request body is not valid JSON."))
-					return
-				}
-				r.Body = io.NopCloser(bytes.NewReader(body))
 			}
 
 			v, err := loadContract()
@@ -105,6 +84,44 @@ func validateRequests(log *slog.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func hasBody(method string) bool {
+	return method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch
+}
+
+// readBody checks the Content-Type, reads the body, and checks that it is
+// JSON, answering 415, 413, or 400 itself when not; ok is false then. r.Body
+// is replaced with a reader over the same bytes, so the body can be read
+// again. The idempotency middleware and validateRequests both use it, so a
+// request is replayed only if it would also pass these checks.
+func readBody(w http.ResponseWriter, r *http.Request) (body []byte, ok bool) {
+	id := RequestID(r.Context())
+	want := "application/json"
+	if r.Method == http.MethodPatch {
+		want = "application/merge-patch+json"
+	}
+	if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != want {
+		problem.Write(w, problem.New(problem.UnsupportedMediaType, id, "Send the body as "+want+"."))
+		return nil, false
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			problem.Write(w, problem.New(problem.ContentTooLarge, id,
+				fmt.Sprintf("Request bodies are limited to %d bytes.", MaxBodyBytes)))
+			return nil, false
+		}
+		problem.Write(w, problem.New(problem.BadRequest, id, "The request body could not be read."))
+		return nil, false
+	}
+	if !json.Valid(body) {
+		problem.Write(w, problem.New(problem.BadRequest, id, "The request body is not valid JSON."))
+		return nil, false
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return body, true
 }
 
 func fieldCount(n int) string {

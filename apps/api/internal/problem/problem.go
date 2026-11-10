@@ -36,6 +36,12 @@ var (
 	UnsupportedMediaType = Kind{"unsupported_media_type", http.StatusUnsupportedMediaType, "Unsupported media type"}
 	ValidationFailed     = Kind{"validation_failed", http.StatusUnprocessableEntity, "Validation failed"}
 	Internal             = Kind{"internal_error", http.StatusInternalServerError, "Internal error"}
+
+	IdempotencyKeyRequired = Kind{"idempotency_key_required", http.StatusBadRequest, "Idempotency key required"}
+	IdempotencyKeyInUse    = Kind{"idempotency_key_in_use", http.StatusConflict, "Idempotency key in use"}
+	IdempotencyKeyReused   = Kind{"idempotency_key_reused", http.StatusUnprocessableEntity, "Idempotency key reused"}
+
+	ConflictExternalRef = Kind{"conflict_external_ref", http.StatusConflict, "External reference already used"}
 )
 
 // New builds the problem body for kind. detail may be empty.

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -52,6 +53,7 @@ type tenantKey struct{}
 type tenantRequest struct {
 	tx     pgx.Tx
 	tenant store.AppTenant
+	keyID  uuid.UUID // the API key making the request, the audit log's actor
 }
 
 func tenantFrom(ctx context.Context) tenantRequest {
@@ -128,7 +130,7 @@ func authenticate(log *slog.Logger, pool *pgxpool.Pool) func(http.Handler) http.
 				if err := q.TouchAPIKey(ctx, key.ID); err != nil {
 					return fmt.Errorf("record key use: %w", err)
 				}
-				tr := tenantRequest{tx: tx, tenant: tenant}
+				tr := tenantRequest{tx: tx, tenant: tenant, keyID: key.ID}
 				next.ServeHTTP(buf, r.WithContext(context.WithValue(ctx, tenantKey{}, tr)))
 				if buf.Status() >= 400 {
 					return errRollback

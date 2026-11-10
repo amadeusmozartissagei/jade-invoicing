@@ -268,7 +268,7 @@ The invoice is paid when the sum of its payments reaches `amount_due` (D9). Reco
 |---|---|
 | `tenant_id`, `key` (PK) | The client's `Idempotency-Key` header |
 | `method`, `path`, `request_hash` | A replay with a different request is rejected |
-| `response_status`, `response_body` | Replayed on a repeat. Only `2xx` responses are stored, with one-time secrets removed. The body is `bytea`, so the replay is byte for byte. *PII* (a created customer) |
+| `response_status`, `response_headers`, `response_body` | Replayed on a repeat. `response_headers` holds `Content-Type`, `Location`, and `ETag` (ADR 0014). Only `2xx` responses are stored, with one-time secrets removed. The body is `bytea`, so the replay is byte for byte. *PII* (a created customer) |
 | `expires_at` | 24 hours after creation |
 
 A row is written in the same transaction as the change it belongs to, so there is no in-progress state. Concurrent repeats are detected with an advisory lock; see [api.md](api.md#idempotency-a3) (ADR 0008).
@@ -324,7 +324,7 @@ The signature scheme, retry schedule, and payload format are in [api.md](api.md#
 | `request_id` | Links to the API logs |
 | `details` | jsonb. **No personal data**, so an erasure never has to edit the audit log |
 
-Written in the same transaction as the change it records. Phase 1 actions: API key create and revoke, invoice create, issue, void, and correct, credit note issue, payment record, webhook endpoint changes. Reads are not audited in phase 1.
+Written in the same transaction as the change it records. Phase 1 actions: API key create and revoke, customer create and update (field names only, ADR 0014), invoice create, issue, void, and correct, credit note issue, payment record, webhook endpoint changes. Reads are not audited in phase 1.
 
 ## Invoice lifecycle
 

@@ -167,3 +167,32 @@ An AI reviewing AI-written code can share its blind spots. Steps 2 and 5 are the
 - **Checks.** Four tests cover `/readyz`: database reachable, not configured, closed pool, and a server that accepts connections but never answers. With the timeout removed on purpose, the last test failed. The full test suite and `golangci-lint` pass locally (`-race` runs only in CI, because it needs cgo on Windows), and `actionlint` passes on both workflows.
 - **Review pass.** `/code-review` (high) reported two findings. The missing timeout test was added. The other, that public `/readyz` calls can occupy the small pool while the database hangs, was left for phase 4 rate limiting and is noted in ADR 0013.
 
+
+### 2026-11-10: Phase 1 slice 7b: customers and idempotency keys (ADR 0014)
+
+- **What the agent did.** It read the contract, the design documents, and ADRs 0008, 0011, and 0012, then proposed the slice: 15 acceptance criteria and seven open questions, each with a recommendation. After Hamza agreed, it wrote:
+  - a migration (`response_headers`, and a daily cleanup job)
+  - `sqlc` queries
+  - a generic idempotency middleware for every `POST`
+  - the four customer operations
+  - a test for every criterion
+- **What the human decided.** Hamza accepted all seven recommendations:
+  - idempotency runs before validation
+  - replayed headers are stored
+  - the 24-hour lifetime has a `pg_cron` cleanup
+  - fingerprint and lock as designed
+  - no personal data in logs
+  - audit rows with field names only
+  - no `If-Match` on customers
+- **How it was checked.**
+  - The first run found that `jsonb` parameters sent as `[]byte` are rejected in pgx's exec mode; the queries now cast from text.
+  - The contract test caught a contract gap: a malformed UUID gets `400`, but six `{id}` operations did not declare it. The responses were added.
+  - Each rule was then broken on purpose (lock, fingerprint, storing only `2xx`, expiry, replayed headers, cursor filter, no-op patch, audit values, `not_allowed`), and each change failed its test. The first fingerprint mutation did not compile and so proved nothing; it was redone.
+- **Review pass.** `/code-review` (high) reported seven findings. Five were fixed:
+  - API-key "last used" updates serialized concurrent requests of one key, so the promised immediate `409` became a wait. Fixed with `skip locked`, with a test.
+  - A replay skipped the `Content-Type` check. The body checks are now shared.
+  - Duplicated body-reading code.
+  - Duplicated merge closures.
+  - An unclear `not_allowed` detail for array elements.
+
+  Two were left and noted in ADR 0014: double buffering, and a concurrency test that cannot force a `409`.

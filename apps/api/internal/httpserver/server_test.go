@@ -79,10 +79,10 @@ func TestRequestIDIgnoresClientValue(t *testing.T) {
 }
 
 // An unknown /v1 resource gets the contract's not_found problem. The response
-// is checked against the 404 that openapi.yaml declares for getCustomer, so a
+// is checked against the 404 that openapi.yaml declares for getInvoice, so a
 // drift between this writer and the Problem schema fails here.
 func TestUnmatchedRouteIsNotFoundProblem(t *testing.T) {
-	r := httptest.NewRequest("GET", "/v1/customers/0b6c5e2e-1111-4222-8333-944455556666", nil)
+	r := httptest.NewRequest("GET", "/v1/invoices/0b6c5e2e-1111-4222-8333-944455556666", nil)
 	resp := serve(newHandler(t), r)
 
 	if resp.StatusCode != http.StatusNotFound {
