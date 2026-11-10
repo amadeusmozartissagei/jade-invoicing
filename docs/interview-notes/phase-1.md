@@ -45,7 +45,7 @@ The schemas use `unevaluatedProperties: false` to reject unknown fields. In JSON
 So an unauthenticated caller learns nothing about the request format, and the validation cost is only paid for real clients. The price is one database lookup for an invalid request from a real client, which is small.
 
 **What fails if the database URL is missing, or the database is paused?**
-`/healthz` still answers, because it never touches the database and the pool connects lazily. `/v1` answers `500`, and the log says why. On Supabase Free a paused project means every API call fails until it is resumed, which is why a keep-alive job is planned.
+`/healthz` still answers, because it never touches the database and the pool connects lazily. `/v1` answers `500`, and the log says why. On Supabase Free a paused project means every API call fails until it is resumed, which is why there is a keep-alive job (next section).
 
 **What if the database hangs instead of failing?**
 Each request's database work has a 10-second deadline. After that the transaction is cancelled and the client gets a `500` problem, instead of waiting until the platform kills the function.
@@ -61,3 +61,23 @@ Each important check was removed on purpose, one at a time, and its test failed:
 - the UTF-8-safe truncation
 
 The database tests run as `jade_api` under RLS, the same as production.
+
+## Keeping the Supabase Free project awake (ADR 0013)
+
+**What happened?**
+The Free project paused after about a week without work, and every `/v1` call failed. It was restored through the Supabase Management API in about four minutes, with no data lost.
+
+**Why not just ping `/healthz`?**
+Supabase decides on "user database activity", not HTTP traffic, and `/healthz` deliberately never touches the database. So there is a separate `/readyz` that runs one query as the API's own role through the pooler.
+
+**Why two endpoints?**
+They answer different questions. `/healthz` says the process is up, so it stays green while the database is down and you can tell the two failures apart. `/readyz` says the API can actually serve requests. Kubernetes uses the same split between liveness and readiness.
+
+**Why GitHub Actions and not `pg_cron` or Vercel cron?**
+Supabase does not say whether its own scheduled jobs count as user activity. Vercel cron would watch Vercel from inside Vercel. A GitHub schedule goes through the same path as a real client, and a failed run emails the owner, so it is also a free outage alert.
+
+**What are its weak points?**
+- GitHub can delay or drop scheduled runs, so it runs twice a day for a seven-day window.
+- GitHub disables schedules after 60 days without commits in a public repository.
+- `select 1` might not be "enough" activity. Supabase emails a warning a week before pausing, and the fallback is a heartbeat write.
+

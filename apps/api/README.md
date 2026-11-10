@@ -20,11 +20,16 @@ go generate ./...                     # regenerate internal/api (oapi-codegen) a
 golangci-lint run ./...
 ```
 
+## Health checks
+
+- `GET /healthz`: the process is up, and the deployed commit. Never touches the database.
+- `GET /readyz`: runs `select 1` as `jade_api`; `200` when the database answers within 5 seconds, `503` otherwise. `.github/workflows/keep-alive.yml` calls it twice a day so the Supabase Free project does not pause (ADR 0013).
+
 ## Environment
 
 | Variable | Used by | What |
 |---|---|---|
-| `JADE_API_DATABASE_URL` | `cmd/api` | Connection as `jade_api` through the transaction pooler. Unset: the server starts, `/healthz` works, `/v1` answers `500` |
+| `JADE_API_DATABASE_URL` | `cmd/api` | Connection as `jade_api` through the transaction pooler. Unset: the server starts, `/healthz` works, `/readyz` answers `503`, `/v1` answers `500` |
 | `DATABASE_URL` | `cmd/admin` | Connection as `postgres`. Never passed as a flag, so it stays out of shell history |
 | `PORT` | `cmd/api` | Listen port, default 8080; Vercel sets it |
 | `TEST_DATABASE_URL` | tests | The local stack as `postgres` |

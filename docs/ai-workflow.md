@@ -158,3 +158,12 @@ An AI reviewing AI-written code can share its blind spots. Steps 2 and 5 are the
   - With Hamza's go-ahead, the agent set `JADE_API_DATABASE_URL` on the Vercel project for Production only, as a sensitive variable, sent through stdin so the value never appeared in output.
   - Its own `vercel redeploy` was blocked by the session's permission classifier (production deploy), and it did not try another route.
   - Hamza's redeploys were then canceled. The build log showed why: the Ignored Build Step compares the commit with the last deployed one, and a redeploy is the same commit, so the step always said "skip". The agent changed the command to build when the commits match. The fix lives in `apps/api`, so its own push rebuilds production with the variable.
+
+### 2026-11-10: Supabase pause and the keep-alive (ADR 0013)
+
+- **What happened.** At the start of the session Hamza noticed the Supabase project was paused. The agent confirmed it with `supabase projects list` (`INACTIVE`) and restored it through the Management API, using the CLI's stored login without printing it, because the CLI has no restore command. It then checked the live API (`/v1/tenant` reached the database again) and the remote migration list.
+- **What the human decided.** Hamza chose to add the keep-alive before the next phase 1 slice.
+- **What the agent decided, for his review.** It noticed that the planned target, `/healthz`, never touches the database and so would not keep the project awake. Supabase's docs say only "user database activity" counts. It added `/readyz`, which runs one query as `jade_api`, and a GitHub Actions schedule twice a day that calls it, and recorded the alternatives (`pg_cron`, Vercel cron) in ADR 0013.
+- **Checks.** Four tests cover `/readyz`: database reachable, not configured, closed pool, and a server that accepts connections but never answers. With the timeout removed on purpose, the last test failed. The full test suite and `golangci-lint` pass locally (`-race` runs only in CI, because it needs cgo on Windows), and `actionlint` passes on both workflows.
+- **Review pass.** `/code-review` (high) reported two findings. The missing timeout test was added. The other, that public `/readyz` calls can occupy the small pool while the database hangs, was left for phase 4 rate limiting and is noted in ADR 0013.
+

@@ -197,7 +197,8 @@ No delete: deliveries reference the endpoint, and their history is useful. Disab
 ### Not in the public spec
 
 - `POST /internal/queue/drain`, called by `pg_cron` through `pg_net` (ADR 0003), authenticated with its own bearer token. It is not part of the client contract, so it is documented in `apps/api`, not in `openapi.yaml`.
-- `GET /healthz` without authentication, for uptime checks and the Supabase keep-alive.
+- `GET /healthz` without authentication, for uptime checks. It does not touch the database.
+- `GET /readyz` without authentication: runs one query as `jade_api` and answers `200` or `503`. The Supabase keep-alive calls it (ADR 0013).
 
 ## Webhooks
 

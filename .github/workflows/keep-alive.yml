@@ -1,0 +1,35 @@
+# Keeps the Supabase Free project from pausing (ADR 0013). Supabase pauses a
+# Free project after a week without enough user database activity; /readyz
+# runs one query as jade_api through the pooler, so each run counts as such a
+# query. Two runs a day leave ample margin. A failed run (the API or the
+# database is down, or the project is already paused) makes GitHub email the
+# workflow's owner, which doubles as the outage alert.
+name: Keep-alive
+
+on:
+  schedule:
+    # Off the hour: GitHub delays or drops scheduled runs at busy times,
+    # especially at the start of the hour.
+    - cron: "17 5,17 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping /readyz
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query the database through the deployed API
+        env:
+          READYZ_URL: https://jade-invoicing-api.vercel.app/readyz
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors --retry-delay 20 \
+            --max-time 30 "$READYZ_URL"
+          echo
