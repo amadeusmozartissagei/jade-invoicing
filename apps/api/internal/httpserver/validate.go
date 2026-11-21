@@ -86,6 +86,18 @@ func validateRequests(log *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
+// declaresBody reports whether r's operation has a request body in the
+// contract. If the contract cannot be loaded it says yes, which keeps the
+// body checks.
+func declaresBody(r *http.Request) bool {
+	v, err := loadContract()
+	if err != nil {
+		return true
+	}
+	method, path, _ := strings.Cut(r.Pattern, " ")
+	return v.HasRequestBody(method, strings.TrimPrefix(path, "/v1"))
+}
+
 func hasBody(method string) bool {
 	return method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch
 }
@@ -97,6 +109,11 @@ func hasBody(method string) bool {
 // request is replayed only if it would also pass these checks.
 func readBody(w http.ResponseWriter, r *http.Request) (body []byte, ok bool) {
 	id := RequestID(r.Context())
+	if r.ContentLength == 0 && !declaresBody(r) {
+		// POST .../issue has no body in the contract, so an empty one passes
+		// whatever Content-Type the client sent with it.
+		return nil, true
+	}
 	want := "application/json"
 	if r.Method == http.MethodPatch {
 		want = "application/merge-patch+json"

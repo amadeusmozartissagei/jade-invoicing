@@ -369,22 +369,7 @@ func isFalse(d *base.DynamicValue[*base.SchemaProxy, bool]) bool {
 }
 
 func (v *Validator) bodySchema(method, specPath, contentType string) *base.Schema {
-	if v.model.Paths == nil || v.model.Paths.PathItems == nil {
-		return nil
-	}
-	item, ok := v.model.Paths.PathItems.Get(specPath)
-	if !ok || item == nil {
-		return nil
-	}
-	var op *v3.Operation
-	switch method {
-	case http.MethodPost:
-		op = item.Post
-	case http.MethodPut:
-		op = item.Put
-	case http.MethodPatch:
-		op = item.Patch
-	}
+	op := v.operation(method, specPath)
 	if op == nil || op.RequestBody == nil || op.RequestBody.Content == nil {
 		return nil
 	}
@@ -426,4 +411,31 @@ func quotedNames(reason string) []string {
 		names = append(names, m[1])
 	}
 	return names
+}
+
+// HasRequestBody reports whether the operation for method and specPath
+// declares a request body. POST .../issue does not, so a client may send it
+// with no body at all.
+func (v *Validator) HasRequestBody(method, specPath string) bool {
+	op := v.operation(method, specPath)
+	return op != nil && op.RequestBody != nil
+}
+
+func (v *Validator) operation(method, specPath string) *v3.Operation {
+	if v.model.Paths == nil || v.model.Paths.PathItems == nil {
+		return nil
+	}
+	item, ok := v.model.Paths.PathItems.Get(specPath)
+	if !ok || item == nil {
+		return nil
+	}
+	switch method {
+	case http.MethodPost:
+		return item.Post
+	case http.MethodPut:
+		return item.Put
+	case http.MethodPatch:
+		return item.Patch
+	}
+	return nil
 }

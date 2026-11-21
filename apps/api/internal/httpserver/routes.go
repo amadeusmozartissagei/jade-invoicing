@@ -64,6 +64,8 @@ func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool) {
 	route("GET /v1/invoices/{id}", wrapper.GetInvoice)
 	routeIfMatch("PATCH /v1/invoices/{id}", wrapper.PatchInvoice)
 	routeIfMatch("DELETE /v1/invoices/{id}", wrapper.DeleteInvoice)
+	route("POST /v1/invoices/{id}/issue", wrapper.IssueInvoice)
+	route("POST /v1/invoices/{id}/void", wrapper.VoidInvoice)
 }
 
 // requestError and bodyError answer a parameter or body that passed

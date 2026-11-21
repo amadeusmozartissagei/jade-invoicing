@@ -47,6 +47,9 @@ var (
 	InvoiceNotIssued     = Kind{"invoice_not_issued", http.StatusConflict, "Invoice is not issued"}
 	PreconditionFailed   = Kind{"precondition_failed", http.StatusPreconditionFailed, "Precondition failed"}
 	PreconditionRequired = Kind{"precondition_required", http.StatusPreconditionRequired, "Precondition required"}
+	InvoiceIncomplete    = Kind{"invoice_incomplete", http.StatusConflict, "Invoice cannot be issued yet"}
+	CreditExceedsInvoice = Kind{"credit_exceeds_invoice", http.StatusConflict, "Credit exceeds invoice"}
+	CorrectionNotAllowed = Kind{"correction_not_allowed", http.StatusConflict, "Correction not allowed"}
 )
 
 // New builds the problem body for kind. detail may be empty.

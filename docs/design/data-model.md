@@ -360,11 +360,11 @@ Triggers, so the rule holds even if the Go code has a bug:
 
 ## Invoice numbering (D6)
 
-The issue transaction, in order:
+The issue transaction, in order (as built in ADR 0016):
 
-1. `select ... from app.invoices where id = $1 for update`: lock the draft and check its `version`.
-2. `update app.number_series set next_value = next_value + 1 where id = $2 returning next_value - 1`: take the next number. The row stays locked until commit, so concurrent issues on the same series queue up here.
-3. Compute and write the totals and breakdown, copy the parties.
+1. `select ... from app.invoices where id = any($1) order by id for update`: lock the draft, and the document it refers to, and check the `version`.
+2. Check the preceding document, completeness, and the rates; compute and write the totals and breakdown; copy the parties.
+3. `update app.number_series set next_value = next_value + 1 where id = $2 returning next_value - 1`: take the next number. The row stays locked until commit, so concurrent issues on the same series queue up here. Taking it after the computation keeps that wait short.
 4. Update the invoice to `issued` with the number.
 5. Insert the event, the webhook deliveries, the `pgmq` messages, and the audit entry.
 6. Commit.

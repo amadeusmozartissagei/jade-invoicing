@@ -77,16 +77,17 @@ func (l draftLine) equal(o draftLine) bool {
 		eqDate(l.PeriodStart, o.PeriodStart) && eqDate(l.PeriodEnd, o.PeriodEnd)
 }
 
-// fieldErrors collects the field problems of one request, for a 422.
+// fieldErrors collects field problems: a 422 validation_failed for a
+// request, or a 409 invoice_incomplete for a draft that cannot be issued.
 type fieldErrors []api.FieldError
 
 func (f *fieldErrors) add(pointer, code, detail string) {
 	*f = append(*f, api.FieldError{Pointer: pointer, Code: code, Detail: detail})
 }
 
-func (f fieldErrors) problem(ctx context.Context) api.Problem {
+func (f fieldErrors) problem(ctx context.Context, kind problem.Kind) api.Problem {
 	sort.SliceStable(f, func(i, j int) bool { return f[i].Pointer < f[j].Pointer })
-	p := problem.New(problem.ValidationFailed, RequestID(ctx), fieldCount(len(f)))
+	p := problem.New(kind, RequestID(ctx), fieldCount(len(f)))
 	errs := []api.FieldError(f)
 	p.Errors = &errs
 	return p
@@ -183,14 +184,14 @@ func (h *handlers) CreateInvoice(ctx context.Context, req api.CreateInvoiceReque
 		return nil, err
 	}
 
-	res, err := checkDraft(ctx, tr.tenant, &d, true, &errs)
+	res, err := checkDraft(ctx, tr.tenant, taxRounding(tr.tenant), &d, true, &errs)
 	if err != nil {
 		return nil, err
 	}
 	if len(errs) > 0 {
 		return api.CreateInvoice422ApplicationProblemPlusJSONResponse{
 			UnprocessableContentApplicationProblemPlusJSONResponse: api.UnprocessableContentApplicationProblemPlusJSONResponse{
-				Body: errs.problem(ctx),
+				Body: errs.problem(ctx, problem.ValidationFailed),
 			},
 		}, nil
 	}
@@ -326,14 +327,14 @@ func (h *handlers) PatchInvoice(ctx context.Context, req api.PatchInvoiceRequest
 		}
 	}
 
-	res, err := checkDraft(ctx, tr.tenant, &d, p.Lines != nil, &errs)
+	res, err := checkDraft(ctx, tr.tenant, taxRounding(tr.tenant), &d, p.Lines != nil, &errs)
 	if err != nil {
 		return nil, err
 	}
 	if len(errs) > 0 {
 		return api.PatchInvoice422ApplicationProblemPlusJSONResponse{
 			UnprocessableContentApplicationProblemPlusJSONResponse: api.UnprocessableContentApplicationProblemPlusJSONResponse{
-				Body: errs.problem(ctx),
+				Body: errs.problem(ctx, problem.ValidationFailed),
 			},
 		}, nil
 	}
@@ -504,7 +505,7 @@ func (h *handlers) seriesFor(ctx context.Context, given *uuid.UUID, errs *fieldE
 // lines are not in the request body (a PATCH of other fields), a rate that
 // the new date makes invalid is reported at the date field instead, since
 // pointers point into the request body.
-func checkDraft(ctx context.Context, t store.AppTenant, d *draft, linesInBody bool, errs *fieldErrors) (invoicecalc.Result, error) {
+func checkDraft(ctx context.Context, t store.AppTenant, rounding invoicecalc.Rounding, d *draft, linesInBody bool, errs *fieldErrors) (invoicecalc.Result, error) {
 	minor, ok := invoicecalc.MinorUnits(t.Currency)
 	if !ok {
 		return invoicecalc.Result{}, fmt.Errorf("tenant currency %q", t.Currency)
@@ -566,7 +567,7 @@ func checkDraft(ctx context.Context, t store.AppTenant, d *draft, linesInBody bo
 			TaxCategory: l.TaxCategory, TaxRate: l.TaxRate,
 		}
 	}
-	res, err := invoicecalc.Calculate(in, invoicecalc.Params{MinorUnits: minor, Rounding: taxRounding(t), Prepaid: d.Prepaid})
+	res, err := invoicecalc.Calculate(in, invoicecalc.Params{MinorUnits: minor, Rounding: rounding, Prepaid: d.Prepaid})
 	var tooLarge *invoicecalc.TooLargeError
 	if errors.As(err, &tooLarge) {
 		ptr := "/lines"
@@ -594,12 +595,19 @@ func rateDate(t store.AppTenant, d *draft) (time.Time, string, error) {
 	case d.SupplyPeriodStart != nil:
 		return *d.SupplyPeriodStart, "/supply_period_start", nil
 	}
+	today, err := tenantToday(t)
+	return today, "", err
+}
+
+// tenantToday is today's date in the tenant's time zone, which decides
+// business dates such as the issue date (data-model.md, "Conventions").
+func tenantToday(t store.AppTenant) (time.Time, error) {
 	loc, err := time.LoadLocation(t.Timezone)
 	if err != nil {
-		return time.Time{}, "", fmt.Errorf("tenant time zone: %w", err)
+		return time.Time{}, fmt.Errorf("tenant time zone: %w", err)
 	}
 	y, m, day := time.Now().In(loc).Date()
-	return time.Date(y, m, day, 0, 0, 0, 0, time.UTC), "", nil
+	return time.Date(y, m, day, 0, 0, 0, 0, time.UTC), nil
 }
 
 // taxRounding is the jurisdiction's tax rounding: commercial for DE, the

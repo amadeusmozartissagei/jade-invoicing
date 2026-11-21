@@ -152,3 +152,42 @@ So that a draft never shows totals at a rate that is not valid. Without a supply
 **How do you insert 500 lines efficiently?**
 In one statement. The lines go to Postgres as a JSON array and `jsonb_to_recordset` turns them into rows. Amounts stay strings until Postgres casts them to `numeric`, so they are never floats. `unnest` over twelve arrays would also work, but `sqlc` cannot analyse it.
 
+
+## Issuing, voiding, correcting, and the outbox (slice 7d, ADR 0016)
+
+**How do you guarantee invoice numbers have no gaps and no duplicates?**
+- **The counter.** The number comes from a counter row that is incremented inside the issue transaction. The row stays locked until commit, so concurrent issues on one series wait their turn.
+- **Rollback.** If anything fails afterwards, the whole transaction rolls back, the increment included, so no number is lost.
+- **Why not a Postgres sequence.** It is not per tenant, and it leaves gaps on rollback.
+- **The test.** 20 concurrent issues get exactly 1 to 20.
+
+**Why take the number last?**
+Every issue on one series waits on that counter row. Doing the checks and calculations first, and taking the number just before marking the invoice issued, keeps the wait short.
+
+**Can two transactions deadlock?**
+Every path locks invoice rows first, in id order, and the number series last. With one global lock order there can be no cycle.
+
+**What does "incomplete" mean, and why those fields?**
+Only what the law requires. In Germany, § 14 Abs. 4 UStG requires:
+
+- the full name and address of both parties
+- the seller's VAT ID or tax number
+- a supply date
+- the line items
+
+In Japan, the qualified invoice requires the issuer's name and registration number, the transaction date, and the recipient's name.
+
+Everything missing comes back at once, with a pointer to each field. XRechnung's extra fields (contact, IBAN) are checked in phase 2, when the XML exists.
+
+**Why does void create a credit note instead of flipping a status?**
+Both countries correct issued invoices with a new document that refers to the original, so the buyer and the tax records see the cancellation. The credit note copies the original's lines and tax rounding, so it cancels it exactly. It also copies the original's parties, so later edits to the customer cannot make the void fail or change who it names.
+
+**What is a transactional outbox, and why use one?**
+When an invoice is issued, the event row, one delivery row per subscribed webhook endpoint, and a queue message per delivery are written in the same transaction as the invoice. Either the invoice and its events both exist, or neither does. There is no window where the invoice is issued but the webhook was never queued, and no message for an invoice that rolled back. The queue (`pgmq`) lives in the same Postgres, which is what makes that possible.
+
+**Why do queue messages carry only IDs?**
+The queue tables have no row-level security. A message holds a delivery ID and a tenant ID; the worker reads the rest under that tenant's RLS. The webhook payload itself has no personal data either, so a misconfigured endpoint leaks nothing personal.
+
+**How did testing find a redundant check?**
+Mutation testing: each rule was broken on purpose to see whether a test fails. Removing void's own "already has credit notes" check failed nothing, because the general credit-limit rule at issue already refuses it. The duplicate was deleted, leaving one rule in one place.
+

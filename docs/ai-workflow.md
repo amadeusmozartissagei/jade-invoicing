@@ -222,3 +222,28 @@ An AI reviewing AI-written code can share its blind spots. Steps 2 and 5 are the
 
   One was kept on purpose and noted in ADR 0015: write responses re-read from the database.
 
+
+### 2026-11-21: Phase 1 slice 7d: issue, void, correct, and the outbox (ADR 0016)
+
+- **What the agent did.** In the same session as slice 7c, after Hamza said to go on ("Gas slice (d)"), it wrote:
+  - queries for locking, credit totals, parties, status changes, and events
+  - the issue transaction, shared by issue, credit notes, corrections, and void
+  - the completeness rules per jurisdiction, each with its legal source
+  - retention dates
+  - the outbox fan-out
+  - nine acceptance criteria with tests, and ADR 0016
+- **What the human decided.** The design came from ADRs 0007, 0008, and 0009, which he had accepted. The open choices are recorded in ADR 0016 as Proposed, for his review: completeness limited to the legal items, void mirroring the original's rounding and parties, and the hand-written fan-out query.
+- **How it was checked.**
+  - **What the first run found.** `pgmq.send` is set-returning and cannot sit inside `count()`; it is now called through a lateral join.
+  - **Event order.** A test expected the wrong order of events: events of one transaction share a timestamp. The expectation was fixed, not the code.
+  - **Mutation checks.** 20 in total.
+    - Two did not compile and one did not match its target. All three were redone.
+    - One survived: void's own credit-note check was redundant with the issue rule. It was removed.
+- **Review pass.** `/code-review` (high) reported five findings. Four were fixed, each with a test and a mutation check:
+  - `issue` refused an empty body sent with a JSON `Content-Type`. The first fix changed behaviour elsewhere: an empty `PUT` became `422` instead of `400`. An existing test caught it, and the final fix asks the contract whether the operation has a body.
+  - An empty `vat_id` passed the "VAT ID or tax number" check.
+  - `invoice_incomplete` was built by overwriting another problem's fields.
+  - Each issue loaded the invoice twice.
+
+  One was kept on purpose and noted in ADR 0016: void computes line amounts twice.
+
