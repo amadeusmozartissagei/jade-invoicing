@@ -194,8 +194,7 @@ func mergeField[T ~string](changed *[]string, name string, dst **string, n nulla
 
 // mergeOne sets *dst to v and reports whether the value changed.
 func mergeOne[T comparable](dst **T, v *T) bool {
-	old := *dst
-	if (old == nil && v == nil) || (old != nil && v != nil && *old == *v) {
+	if eqPtr(*dst, v) {
 		return false
 	}
 	*dst = v
@@ -249,10 +248,20 @@ type cursor struct {
 }
 
 func customerFilter(externalRef *string) string {
-	h := sha256.New()
-	_, _ = h.Write([]byte("customers"))
 	if externalRef != nil {
-		_, _ = fmt.Fprintf(h, "\x00external_ref=%s", *externalRef)
+		return listFilter("customers", "external_ref="+*externalRef)
+	}
+	return listFilter("customers")
+}
+
+// listFilter hashes a list's resource name and filters into the short value
+// a cursor carries, so a cursor is only accepted with the filters it was
+// issued for.
+func listFilter(resource string, filters ...string) string {
+	h := sha256.New()
+	_, _ = h.Write([]byte(resource))
+	for _, f := range filters {
+		_, _ = fmt.Fprintf(h, "\x00%s", f)
 	}
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)[:8])
 }

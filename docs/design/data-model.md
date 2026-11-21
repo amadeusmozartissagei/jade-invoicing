@@ -382,7 +382,7 @@ From [germany-en16931-calculation.md](../domain/germany-en16931-calculation.md) 
 3. `tax_amount = round(taxable_amount × rate / 100)` **once per group**: half away from zero to the cent for DE [BMF-2026 Rn. 17], [BR-CO-17]; the tenant's mode to the yen for JP [NTA-QA-57].
 4. Totals by the BR-CO formulas (BT-106 to BT-115).
 
-Tests assert exact amounts, including exact half cents and half yen, several rates on one invoice, and that per-line rounding would give a different result in the chosen cases. The KoSIT validator tolerates a tax amount off by up to one whole unit, so it cannot be relied on for this ([details](../domain/germany-en16931-calculation.md#validator-tolerance-versus-the-tax-rule)).
+Implemented in `apps/api/internal/invoicecalc` (ADR 0015). Tests assert exact amounts, including exact half cents and half yen, several rates on one invoice, and that per-line rounding would give a different result in the chosen cases. The KoSIT validator tolerates a tax amount off by up to one whole unit, so it cannot be relied on for this ([details](../domain/germany-en16931-calculation.md#validator-tolerance-versus-the-tax-rule)).
 
 ## Events and webhooks
 

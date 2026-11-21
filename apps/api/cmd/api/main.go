@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // tenant time zones decide dates; the runtime may lack zoneinfo
 
 	"github.com/jackc/pgx/v5/pgxpool"
 

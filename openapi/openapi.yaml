@@ -1533,7 +1533,7 @@ components:
         buyer_reference:
           type: [string, 'null']
           maxLength: 200
-          description: BT-10; defaults to the customer's `default_buyer_reference`, then `-`
+          description: BT-10; defaults to the customer's `default_buyer_reference`, then `-` for DE (none for JP)
         order_reference: {type: [string, 'null'], maxLength: 200, description: BT-13}
         note: {type: [string, 'null'], maxLength: 2000, description: BT-22}
         payment_terms: {type: [string, 'null'], maxLength: 1000, description: BT-20}

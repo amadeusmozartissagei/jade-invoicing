@@ -42,6 +42,11 @@ var (
 	IdempotencyKeyReused   = Kind{"idempotency_key_reused", http.StatusUnprocessableEntity, "Idempotency key reused"}
 
 	ConflictExternalRef = Kind{"conflict_external_ref", http.StatusConflict, "External reference already used"}
+
+	InvoiceNotDraft      = Kind{"invoice_not_draft", http.StatusConflict, "Invoice is not a draft"}
+	InvoiceNotIssued     = Kind{"invoice_not_issued", http.StatusConflict, "Invoice is not issued"}
+	PreconditionFailed   = Kind{"precondition_failed", http.StatusPreconditionFailed, "Precondition failed"}
+	PreconditionRequired = Kind{"precondition_required", http.StatusPreconditionRequired, "Precondition required"}
 )
 
 // New builds the problem body for kind. detail may be empty.

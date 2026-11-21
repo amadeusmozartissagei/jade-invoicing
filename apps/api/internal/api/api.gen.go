@@ -811,7 +811,7 @@ type InvoiceTaxRounding string
 
 // InvoiceCreate defines model for InvoiceCreate.
 type InvoiceCreate struct {
-	// BuyerReference BT-10; defaults to the customer's `default_buyer_reference`, then `-`
+	// BuyerReference BT-10; defaults to the customer's `default_buyer_reference`, then `-` for DE (none for JP)
 	BuyerReference nullable.Nullable[string] `json:"buyer_reference,omitempty"`
 	CustomerId     *openapi_types.UUID       `json:"customer_id,omitempty"`
 	DocumentType   *DocumentType             `json:"document_type,omitempty"`
@@ -848,7 +848,7 @@ type InvoiceCreate struct {
 
 // InvoiceEditableFields defines model for InvoiceEditableFields.
 type InvoiceEditableFields struct {
-	// BuyerReference BT-10; defaults to the customer's `default_buyer_reference`, then `-`
+	// BuyerReference BT-10; defaults to the customer's `default_buyer_reference`, then `-` for DE (none for JP)
 	BuyerReference nullable.Nullable[string] `json:"buyer_reference,omitempty"`
 	CustomerId     *openapi_types.UUID       `json:"customer_id,omitempty"`
 

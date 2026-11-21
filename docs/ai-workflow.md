@@ -196,3 +196,29 @@ An AI reviewing AI-written code can share its blind spots. Steps 2 and 5 are the
   - An unclear `not_allowed` detail for array elements.
 
   Two were left and noted in ADR 0014: double buffering, and a concurrency test that cannot force a `409`.
+
+
+### 2026-11-21: Phase 1 slice 7c: invoice drafts and the tax engine (ADR 0015)
+
+- **What the agent did.** At the start of the session it re-read the project's purpose and progress, and checked that the roadmap still fits. Phase 1 slices (c) to (g) remain the right order, and the keep-alive has run green twice a day since 10 November. It then wrote:
+  - the tax engine `internal/invoicecalc`
+  - `sqlc` queries for invoices
+  - the five draft operations (create, read, list, merge-patch with `If-Match`, delete)
+  - a test for each of eight acceptance criteria
+  - ADR 0015
+- **What the human decided.** Hamza set a standing working habit for this session: "loop engineering", meaning verify, review, fix, and verify again until clean before reporting. The design came from ADRs 0007 and 0008, which he had accepted. The choices those ADRs left open were made by the agent and are recorded in ADR 0015 as Proposed, for his review.
+- **How it was checked.**
+  - **Oracle test.** The tax engine is checked against an independent `math/big` implementation on 2,000 random invoices.
+  - **Mutation checks.** Rules were broken on purpose, 4 in the engine and 12 in the handlers, and every change failed a test. One mutation did not compile at first and was redone. A second showed that a `prepaid_amount` patch had no test, so one was added.
+  - **What the first test run found.** pgx's exec mode cannot encode `[]uuid.UUID`, so the queries now take `text[]`. A test helper read the response body twice.
+  - **Toolchain limits.** `sqlc` could not analyse a multi-argument `unnest`, so the inserts use `jsonb_to_recordset`. The race detector needs a C compiler, which this Windows machine lacks; CI runs `-race`.
+- **Review pass.** `/code-review` (high) reported seven findings. Six were fixed, each with a test and a mutation check:
+  - Rate errors pointed into lines that were not in the `PATCH` body, and a no-op `PATCH` was still checked.
+  - The German `-` buyer reference was also applied to Japanese drafts.
+  - A lone `supply_period_start` was ignored for rate validity.
+  - Empty pages ran four queries.
+  - A duplicated pointer comparison.
+  - Hand-built `If-Match` routes.
+
+  One was kept on purpose and noted in ADR 0015: write responses re-read from the database.
+

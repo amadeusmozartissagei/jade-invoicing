@@ -21,7 +21,8 @@ type handlers struct {
 
 // registerV1 routes the implemented /v1 operations. Each one runs
 //
-//	authenticate → [idempotent, for POST] → validateRequests → generated wrapper → handler
+//	authenticate → [idempotent, for POST | requireIfMatch, for draft PATCH and DELETE]
+//	  → validateRequests → generated wrapper → handler
 //
 // so the handler gets a decoded, contract-valid request and the tenant's
 // transaction in its context.
@@ -44,6 +45,11 @@ func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool) {
 		}
 		mux.Handle(pattern, auth(validate(h)))
 	}
+	// Drafts are edited and deleted with If-Match (ADR 0008, A4); a missing
+	// one is a 428, answered before validation would call it a 400.
+	routeIfMatch := func(pattern string, h http.HandlerFunc) {
+		mux.Handle(pattern, auth(requireIfMatch(validate(h))))
+	}
 
 	warmContract()
 	route("GET /v1/tenant", wrapper.GetTenant)
@@ -53,6 +59,11 @@ func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool) {
 	route("POST /v1/customers", wrapper.CreateCustomer)
 	route("GET /v1/customers/{id}", wrapper.GetCustomer)
 	route("PATCH /v1/customers/{id}", wrapper.PatchCustomer)
+	route("GET /v1/invoices", wrapper.ListInvoices)
+	route("POST /v1/invoices", wrapper.CreateInvoice)
+	route("GET /v1/invoices/{id}", wrapper.GetInvoice)
+	routeIfMatch("PATCH /v1/invoices/{id}", wrapper.PatchInvoice)
+	routeIfMatch("DELETE /v1/invoices/{id}", wrapper.DeleteInvoice)
 }
 
 // requestError and bodyError answer a parameter or body that passed

@@ -116,3 +116,39 @@ Page 1,000 costs the same as page 1, and new rows do not shift the pages. The cu
 
 **Why no `If-Match` on customer `PATCH`?**
 The contract makes it last write wins. Issued invoices copy the customer's details at issue, so editing a customer never changes an issued document. Drafts of invoices do use `If-Match`.
+
+
+## Invoice drafts and the tax engine (slice 7c, ADR 0015)
+
+**How is VAT calculated, and why not per line?**
+Each line's net amount is rounded to the currency unit. Lines are grouped by rate, and the tax is computed once per group from the group's total. Both countries require that: EN 16931 computes tax per VAT breakdown, and Japan's NTA explicitly forbids rounding per line and summing. Example: five lines of €0.03 at 19%. Per group: 0.15 × 19% = 0.0285, which rounds to €0.03. Per line it would be 5 × €0.01 = €0.05.
+
+**How do Germany and Japan differ in the engine?**
+Only in two parameters:
+
+- **Minor units:** EUR has 2, JPY has 0.
+- **Tax rounding:** Germany rounds commercially (half away from zero); in Japan the issuer chooses down, up, or half up.
+
+The engine is one pure function with no database access.
+
+**How do you know the arithmetic is right?**
+- **Fixed cases** with exact expected amounts, including exact half cents.
+- **An oracle test.** 2,000 random invoices are compared with a second implementation written with Go's `math/big` rationals, so the test does not check the decimal library against itself.
+- **Mutation testing.** Each rule was broken on purpose, and a test failed every time.
+- **No floats anywhere.** Money is a decimal string in JSON, `numeric` in Postgres, and `shopspring/decimal` in Go.
+
+**What subtle bug did you avoid in the division?**
+Dividing by 100 with the library's `Div` rounds at 16 decimals. `Shift(-2)` moves the decimal point and is exact, so the tax rounding sees the true value.
+
+**What does `If-Match` protect against?**
+Lost updates. Two people load the same draft (version 3) and both save. Without a check, the second save silently overwrites the first. With `If-Match: "3"` the server locks the row, compares the version, and lets only the first save through; the second gets `412` and must re-read. A test fires eight concurrent edits with the same ETag: exactly one wins.
+
+**Why is a missing `If-Match` a 428 and not a 400?**
+RFC 6585 defines `428 Precondition Required` for exactly this case. The check runs before request validation, which would otherwise treat a missing required header as a generic `400`.
+
+**Why check the tax rate at draft time if issue checks it again?**
+So that a draft never shows totals at a rate that is not valid. Without a supply date yet, the draft is checked against today in the tenant's time zone. Issue checks again against the final supply date.
+
+**How do you insert 500 lines efficiently?**
+In one statement. The lines go to Postgres as a JSON array and `jsonb_to_recordset` turns them into rows. Amounts stay strings until Postgres casts them to `numeric`, so they are never floats. `unnest` over twelve arrays would also work, but `sqlc` cannot analyse it.
+
