@@ -1,0 +1,1 @@
+{ "$schema": "https://openapi.vercel.sh/vercel.json", "framework": "go", "regions": ["fra1"], "buildCommand": "sh scripts/fetch-typst.sh && go build -o \"$VERCEL_OUTPUT_FILE\" ./cmd/api" }

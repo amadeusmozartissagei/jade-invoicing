@@ -1,0 +1,3 @@
+cmd/api/assets/bin/
+.vercel/
+.env*
