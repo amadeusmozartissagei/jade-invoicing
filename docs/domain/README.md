@@ -23,3 +23,4 @@ Rules the platform must follow, each with a primary source. These are engineerin
 
 - Whether KoSIT/FeRD publish a newer mapping table after the BMF letter of 15 Oct 2026. (The BMF FAQ, as of October 2026, has been read; see the German note.)
 - Japanese corporate number check digit, the NTA registration lookup API, and APPI deletion rules.
+- The current UStAE 14.3, 14.11, and 14c.1: the BMF handbook site blocked automated access, so the document-title notes rely on the 2023 edition. No title is legally required, so this does not block the PDF (see [germany-e-invoicing.md](germany-e-invoicing.md#document-titles-on-the-pdf)).

@@ -328,6 +328,9 @@ func issueDraft(ctx context.Context, id uuid.UUID, ifMatchTag *string, opts issu
 	if err := emitEvent(ctx, eventType, body); err != nil {
 		return issueResult{}, err
 	}
+	if err := enqueueRender(ctx, id); err != nil {
+		return issueResult{}, err
+	}
 	if err := audit(ctx, "invoice.issue", auditInvoice, id, nil); err != nil {
 		return issueResult{}, err
 	}

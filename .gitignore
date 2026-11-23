@@ -23,3 +23,7 @@ Thumbs.db
 
 # Source copies kept local only (not clearly free to redistribute)
 docs/domain/sources/bmf-faq-e-rechnung-*.pdf
+
+# Typst binaries fetched by scripts/fetch-typst.sh (ADR 0017, D9)
+/apps/api/.bin/
+/apps/api/internal/invoicepdf/embedded/typst

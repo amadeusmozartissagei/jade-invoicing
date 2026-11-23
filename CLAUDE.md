@@ -79,7 +79,7 @@ Free-tier limits that shape the design (details and sources in ADR 0001):
 Still open, to settle in the first sessions with an ADR each:
 
 - How to generate and validate XRechnung and ZUGFeRD. The official validator is Java, so it may run in CI only.
-- PDF engine: Typst is Proposed (ADR 0006), pending a spike on Vercel early in phase 1; fallback is a pure-Go library. The ZUGFeRD XMP block is unproven.
+- The ZUGFeRD XMP block: Typst 0.15.1 cannot write custom XMP (ADR 0006), so phase 2 needs a post-processing step or another tool.
 
 Settled:
 
@@ -94,6 +94,7 @@ Settled:
 - Customers and idempotency (ADR 0014): every `POST` runs `authenticate → idempotent → validate → handler`; keys stored only on `2xx` with an allowlist of headers (`Content-Type`, `Location`, `ETag`), 24 h, advisory-lock `409` for concurrent repeats, daily `pg_cron` cleanup. Customer changes are audited with field names only; no values in logs or audit. `TouchAPIKey` uses `skip locked` so requests of one key never queue.
 - Invoice drafts and tax engine (ADR 0015, Proposed until he reviews it): pure `internal/invoicecalc` (exact decimals, tax once per rate, oracle-tested); drafts store totals with the tenant's current rounding; rates checked against supply date → period end → period start → today; `If-Match` per RFC 9110 (list, `*`, strong), `428` before validation via `routeIfMatch`; child rows written with `jsonb_to_recordset`, IDs passed as `text[]` in exec mode; buyer reference falls back to `-` for DE only.
 - Issue, void, correct, outbox (ADR 0016, Proposed until he reviews it): one transaction locks invoice rows in id order, checks completeness (§ 14 Abs. 4 UStG / NTA required items only; XRechnung extras wait for phase 2), recomputes totals, copies parties, then takes the number; void issues a mirror credit note with the original's rounding and parties; events hold the Standard Webhooks envelope without personal data; fan-out is hand-written SQL (`pgmq.send` via `cross join lateral`) inserting deliveries for subscribed enabled endpoints and queue messages with IDs only; body checks are skipped only for operations without a request body.
+- PDFs (ADR 0006, ADR 0017; D1–D6, D9–D11 Proposed until he reviews them): Typst v0.15.1, PDF/A-3b, rendered asynchronously. Issuing sends `render_pdf` (IDs only) in the issue transaction. `POST /internal/queue/drain` (bearer `JADE_DRAIN_TOKEN`, Vault `drain_url`/`drain_token` for `pg_cron`) renders, uploads to the private bucket `invoice-files` under `<tenant>/<invoice>/pdf/<sha256>.pdf` with an S3 access key, then inserts `invoice_files`. Every step is safe to repeat: deterministic bytes (`--creation-timestamp` = issue time), content-hash keys, `on conflict do nothing`. At most 5 attempts by `read_ct`. `GET /files` returns 5-minute SigV4 URLs. Typst is embedded only with `-tags typst_embedded` (Vercel `buildCommand`); locally and in CI, `scripts/fetch-typst.sh` puts it in `apps/api/.bin`. Tests need the local stack with Storage (`apps/api/README.md`) and `pdftotext`.
 - Keep-alive (ADR 0013): `GET /readyz` runs `select 1` as `jade_api` (`200`/`503`); `.github/workflows/keep-alive.yml` calls it at 05:17 and 17:17 UTC so the Supabase Free project does not pause. `/healthz` never touches the database.
 
 ## Roadmap (draft; refine in phase 0)
@@ -114,15 +115,18 @@ He can start applying after phase 1 or 2. Later phases keep deepening the projec
 
 Claude writes the code. Hamza steers, reviews, and must be able to explain every part in an interview. He will say openly that he built it with an AI coding agent, so the workflow itself is part of what the project demonstrates.
 
-Loop for each feature or slice:
+Loop engineering, for each feature or slice. Each step runs through the `mattpocock-skills` skill named in it (decided 2026-11-21):
 
-1. **Spec.** Agree on the slice's goal and its acceptance criteria.
-2. **Plan.** Use plan mode for anything non-trivial and record design choices.
-3. **Implement in small slices.** Each slice comes with its own tests.
-4. **Verify.** Run the tests, linters, and the local stack, and show proof (test output, request/response, screenshots).
-5. **Review.** Run a code review pass (`/code-review`) before a commit or PR.
-6. **Explain.** Write or update the ADR and the interview notes for the slice.
-7. **Commit or PR** through CI.
+1. **Spec** (`grilling`, `domain-modeling`). Goal and checkable acceptance criteria; grill the plan until no branch is open; new domain terms go in `GLOSSARY.md`. Done when Hamza accepts the criteria.
+2. **Research** (`research`), when the slice rests on a rule or tool fact not yet in `docs/domain/` or an ADR. Done when every claim has a primary source in the repo.
+3. **Design** (`codebase-design`; `prototype` for an unproven tool or state model). Plan mode for anything non-trivial; choices recorded.
+4. **Implement** (`tdd`). Red, green, refactor in small steps. Done when every acceptance criterion has a passing test.
+5. **Verify.** Tests, linters, codegen drift, local stack, and a mutation check of each rule; show the proof. A red result goes to `diagnosing-bugs`.
+6. **Review** (`mattpocock-skills:code-review`: Standards, and Spec against the slice's ADR criteria). Fix, then back to step 5, until both axes are clean.
+7. **Explain** (`domain-modeling`). ADR, glossary, interview notes, `docs/ai-workflow.md`.
+8. **Ship.** Commit or PR through CI, only when he asks; `pr` writes a PR body. Steps only he can perform (dashboards, secrets, accounts) go through `wizard`.
+
+Editing this file or any agent-facing document: `writing-for-agents`.
 
 Parallel work: once the contracts are fixed (OpenAPI spec, database schema, webhook payloads), the Go API and the dashboard can run as separate sessions in separate git worktrees. Never let two sessions edit the same files.
 
@@ -133,7 +137,7 @@ Documentation that must stay current:
 - `docs/interview-notes/phase-N.md`: likely interview questions on that phase and clear answers in plain language.
 - `docs/ai-workflow.md`: how the AI agent was used, what humans decided, and how quality was checked (tests, CI, reviews). This is honest material for the "you used AI?" interview question.
 
-Quiz Hamza on the design (why this, what fails if X goes down, how it scales) and revise the notes wherever his explanation is shaky. Decided 2026-11-02: the quizzes are held back until development is done, then cover every phase; do not offer one at the end of each phase. Keep writing each phase's interview notes as it goes.
+Interview prep is paused (decided 2026-11-22): the design quiz (`grilling` on Hamza: why this, what fails if X goes down, how it scales) runs only when he asks. Keep writing each slice's interview notes so the material is ready.
 
 He still practices live coding (LeetCode easy/medium in Go or Python) on his own. Live interview rounds are usually without AI.
 

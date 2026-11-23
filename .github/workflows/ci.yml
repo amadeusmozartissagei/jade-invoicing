@@ -70,25 +70,48 @@ jobs:
           working-directory: apps/api
       - name: Build
         run: go build -o /dev/null ./cmd/api
+      # The Vercel build: Typst checked against its SHA-256 and embedded
+      # (ADR 0017, D9).
+      - name: Build as on Vercel
+        run: |
+          sh scripts/fetch-typst.sh internal/invoicepdf/embedded
+          go build -tags typst_embedded -o /dev/null ./cmd/api
 
   api-test:
-    name: API tests (with local Supabase Postgres)
+    name: API tests (with local Supabase Postgres and Storage)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
-      - name: Start Postgres and apply migrations
+      # Postgres, Storage, and Kong (which routes /storage/v1) only
+      # (ADR 0017, D7). start applies the migrations.
+      - name: Start Postgres and Storage and apply migrations
         run: |
-          supabase db start
-          supabase migration up --local
+          supabase start -x gotrue,realtime,imgproxy,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env | sed -n 's/^STORAGE_S3_URL=/TEST_S3_ENDPOINT=/p; s/^S3_PROTOCOL_REGION=/TEST_S3_REGION=/p; s/^S3_PROTOCOL_ACCESS_KEY_ID=/TEST_S3_ACCESS_KEY_ID=/p; s/^S3_PROTOCOL_ACCESS_KEY_SECRET=/TEST_S3_SECRET_ACCESS_KEY=/p' | tr -d '"' >> "$GITHUB_ENV"
+      - name: Install pdftotext
+        run: sudo apt-get install -y --no-install-recommends poppler-utils
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
+      - name: Fetch Typst
+        working-directory: apps/api
+        run: sh scripts/fetch-typst.sh
       - name: Test
         working-directory: apps/api
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:44322/postgres
-        run: go test -race -count=1 ./...
+          PDF_SAMPLE_DIR: ${{ runner.temp }}/pdf
+        run: |
+          mkdir -p "$PDF_SAMPLE_DIR"
+          go test -race -count=1 ./...
+      # Criterion 9 of ADR 0017: the rendered PDFs are valid PDF/A-3b. The
+      # image is pinned by digest (pulled 2026-11-23).
+      - name: Validate sample PDFs with veraPDF
+        run: |
+          docker run --rm -v "$RUNNER_TEMP/pdf:/data" verapdf/cli@sha256:c2ac9448973a56acd833c81441e38d2dca58ea26a2ce1621e9a32e85d3d2728f --flavour 3b --format text $(cd "$RUNNER_TEMP/pdf" && printf '/data/%s ' *.pdf) | tee verapdf.txt
+          test "$(grep -c '^PASS' verapdf.txt)" -eq "$(ls "$RUNNER_TEMP/pdf" | wc -l)"
+          test "$(grep -c '^PASS' verapdf.txt)" -ge 5

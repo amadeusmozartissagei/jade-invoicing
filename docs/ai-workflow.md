@@ -247,3 +247,76 @@ An AI reviewing AI-written code can share its blind spots. Steps 2 and 5 are the
 
   One was kept on purpose and noted in ADR 0016: void computes line amounts twice.
 
+
+### 2026-11-21: The loop now runs on the `mattpocock-skills` plugin
+
+- **What the human decided.** Hamza installed the `mattpocock-skills` plugin (from `claude-plugins-official`) and asked for it to be fully integrated into the project's workflow. He cancelled two earlier agreements that conflicted with it:
+  - **Design quizzes.** Before, they were held back until development was done. Now they run per slice with `grilling`: on the plan at the Spec step, and on Hamza after the slice is explained. Phase 0 and phase 1 slices (a) to (d) are a backlog.
+  - **Review.** The built-in `/code-review` is replaced by the plugin's `code-review`. It reviews two axes in parallel: Standards (the repository's rules) and Spec (the slice's acceptance criteria in its ADR).
+- **What the agent did.** It mapped each step of the loop in `CLAUDE.md` to the skill that runs it:
+  - `grilling` and `domain-modeling` for the spec
+  - `research` for unsourced facts
+  - `codebase-design` and `prototype` for the design
+  - `tdd` for the implementation
+  - `diagnosing-bugs` when verification is red
+  - `code-review` for the review
+  - `domain-modeling` again for ADRs and a new glossary
+  - `pr` and `wizard` for shipping
+
+  It wrote the change with the plugin's `writing-for-agents` skill. `CLAUDE.md` is loaded in every session, so each step is one line naming its skill and its completion criterion, and the loop is written in one place only.
+- **Update, 2026-11-22.** Hamza paused interview prep: the design quiz now runs only when he asks, so the agent stopped the backlog quiz after its first round. `grilling` still runs on each slice's plan at the Spec step, because that shapes the code.
+
+### 2026-11-22: Phase 1 slice 7e, first half: spec, research, and the Typst spike (ADR 0006, ADR 0017 draft)
+
+The first slice run through the `mattpocock-skills` loop.
+
+- **Spec (`grilling`).** Three rounds of questions, each with the agent's recommendation. Hamza accepted all of them; they are in ADR 0017. Two moments are worth recording:
+  - When Hamza asked whether the backlog quiz was needed for development, the agent answered that it was not, and split `grilling` into two uses: on the plan (development) and on Hamza (interview prep). He paused the second.
+  - In the second round, the agent turned down a researcher's suggestion of two German credit-note titles. The same research recommended deriving the title from the type code, and both cases share code 381.
+- **Glossary (`domain-modeling`).** The agent created `GLOSSARY.md` with 28 terms. It raised one conflict with the code: "invoice" means one document type in the glossary, but the API resource `/v1/invoices` holds all three. Hamza decided to keep the API and note the difference in the glossary.
+- **Research (`research`).** Two background agents read primary sources:
+  - one on German document titles, now in `docs/domain/germany-e-invoicing.md`
+  - one on Supabase Storage, Typst, and Vercel, now in `docs/research/2026-11-22-pdf-storage-and-typst.md`
+
+  The first corrected the brief: the self-billing rule is § 14 Abs. 2 Satz 5 UStG, not Satz 2. Both listed what they could not confirm. The BMF handbook site blocked automated access, which is now a gap in `docs/domain/README.md`.
+- **Spike (`prototype`).** A throwaway Vercel project, approved by Hamza and deleted afterwards. Code on branch `spike/typst-vercel`. All four ADR 0006 criteria passed, including veraPDF PDF/A-3b.
+  - **Three unconfirmed points answered by trying:** the Go preset ignores `installCommand`; `functions.includeFiles` only applies to an `api/` directory; `buildCommand` replaces the preset's `go build`. That led to `go:embed`.
+  - **A measurement error the agent caught itself.** A Linux build came out at 20 MB, too small. Git Bash on Windows had silently treated `typst` as `typst.exe`, so the copy had overwritten the Windows binary and the next step deleted it. Redone in PowerShell: 76 MB.
+- **What is left.** Design, acceptance criteria, implementation, review, and ADR 0017's consequences, in the next session (one chat per step).
+
+### 2026-11-23: Phase 1 slice 7e, second half: design, TDD, verify, review (ADR 0017)
+
+- **Design (`codebase-design`).** The agent proposed four modules, each with a small interface:
+  - `invoicepdf`: `Render(ctx, Input)`
+  - `objstore`: `Put` and `PresignGet`
+  - `worker`: a `Drainer`
+  - two endpoints
+
+  Hamza made three choices, with the agent's recommendation on each:
+  - PDF/A-3b from the start
+  - real local Storage in tests instead of a fake
+  - `aws-sdk-go-v2`
+
+  He accepted the 11 acceptance criteria.
+- **Seams.** The `tdd` skill asks for the test seams to be confirmed before the first test. Hamza cancelled the agent's question dialog, then asked why it had stopped. The agent named the three seams in chat, and he said to continue.
+- **Implementation (`tdd`).**
+  - **Not always strictly red-first.** For `invoicepdf` and `objstore`, the agent wrote a group of tests and then the code. It did not go one test at a time.
+  - **Two bugs found by the first test runs:**
+    - Empty lists became JSON `null`, and the template crashed on them.
+    - The drain read a failed message twice in one call, so attempts jumped 1, 3, 5.
+- **Verify.**
+  - Mutation checks: 22 mutations, 20 caught. One survivor showed a test too weak to catch it (fixed). The other could not change behaviour.
+  - veraPDF passes on all six sample documents.
+  - Lint is clean, and codegen shows no drift.
+- **Review (`mattpocock-skills:code-review`).** Two sub-agents ran in parallel.
+  - **Standards: no breach of a documented rule, but five real bugs.** Examples:
+    - the drain's time budget was only checked per batch
+    - full Typst stderr could reach the logs
+    - `.gitignore` entries did not match
+  - **Spec: gaps against the ADR.** Examples:
+    - no test for a crash between upload and insert
+    - attempts counted only after handling
+    - the Japanese return invoice lacked the original transaction's date, which the domain notes require but the spec had missed
+
+  All were fixed and checked again. The fixes are listed in ADR 0017's consequences.
+- **Not done here.** Pushing the migration, the S3 keys, the Vercel env vars, and the Vault secrets. They need Hamza's accounts and go through a `wizard` script. Nothing is committed yet.

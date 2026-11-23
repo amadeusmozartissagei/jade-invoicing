@@ -126,6 +126,39 @@ In an E-Rechnung, the mandatory items must be in the structured part. [BMF-2025,
 
 **Small-amount invoice** (total ≤ €250, § 33 UStDV): supplier name and address, issue date, quantity and description, gross amount and the tax rate (or an exemption note). [UStDV-33]
 
+## Document titles on the PDF
+
+Checked on 2026-11-22. Covers the German title printed on the PDF for the three document types: `invoice` (UNTDID 1001 code 380), `credit_note` (381), and `corrected_invoice` (384).
+
+- **No title is required by law, except "Gutschrift" for self-billing.** An invoice is any document that bills a supply, "gleichgültig, wie dieses Dokument im Geschäftsverkehr bezeichnet wird" (whatever it is called in business). The list of mandatory items in § 14 Abs. 4 Satz 1 contains no title; the only wording it prescribes is the word "Gutschrift" in Nr. 10. [UStG-14] (Special cases under § 14a UStG need fixed notes such as "Steuerschuldnerschaft des Leistungsempfängers" for reverse charge; those are notes, not titles. [BMF-2013 II.7])
+- **"Gutschrift" in the statute means self-billing.** § 14 Abs. 2 **Satz 5** (not Satz 2; the sentences were renumbered, and older BMF texts still cite Satz 2) lets the recipient issue the invoice if agreed beforehand, and calls that a Gutschrift. § 14 Abs. 4 Satz 1 Nr. 10 requires the word "Gutschrift" when the recipient, or a third party it engaged, issues the invoice under Abs. 2 Satz 5. [UStG-14]
+- **A supplier's credit note is not a Gutschrift in the VAT sense.** The UStAE says a cancellation or correction of the original invoice that everyday language also calls a Gutschrift is not one. [UStAE-14.3 Abs. 1 Satz 6, Abs. 2 Satz 5] The BMF calls this a "kaufmännische Gutschrift" (commercial credit note). [BMF-2013 I.2]
+- **Calling it "Gutschrift" anyway is harmless for VAT, but not useful.** Using the word on a document that is not a VAT Gutschrift is "umsatzsteuerrechtlich unbeachtlich", and the label alone does not make § 14c UStG apply (tax shown on an invoice is owed). [BMF-2013 I.2] The same letter added this rule as a sentence to UStAE 14c.1 Abs. 3. [BMF-2013 II.8] § 14c UStG makes the issuer owe tax that it shows too high or without being entitled to show it. [UStG-14c] So the risk under § 14c comes from the tax amounts on the document, not from its title.
+- **Self-billing may use other languages' terms.** Besides "Gutschrift", the BMF accepts the term used in another official EU language version of Art. 226 Nr. 10a of the VAT Directive, e.g. "Self-billing". Other terms do not meet § 14 Abs. 4 Satz 1 Nr. 10, but input VAT is not denied for that alone if the term is clear enough (e.g. "Eigenfaktura"). [BMF-2013 II.6, UStAE 14.5 Abs. 24]
+- **A correction is a document that refers to the original.** An invoice can be corrected when it lacks items under § 14 Abs. 4 or § 14a UStG or has wrong items. Only the missing or wrong items need to be sent, in a document "das spezifisch und eindeutig auf die Rechnung bezogen ist" (specifically and unambiguously related to the invoice), with the same form and content requirements as an invoice under § 14 UStG. [UStDV-31 Abs. 5] The UStDV names no title for this document.
+- **The BMF uses "Rechnungsberichtigung" for corrections** and lists replacing corrections, cumulative corrections, and commercial credit notes as common kinds; which invoice type code fits each is not settled yet. [BMF-2026 Rn. 20, 21]
+- **Reference to the original: the rule is "specific and unambiguous", not a fixed list.** The sources read require a specific and unambiguous reference to the original invoice [UStDV-31 Abs. 5], [BMF-FAQ Q7b, Q12b], and for an E-Rechnung corrected by self-billing also a prior agreement [BMF-2026, UStAE 14.11 Abs. 2 Satz 7]. None of them says in so many words that the original's number and date must be printed.
+
+**Titles chosen for the PDF** (a design choice within the rules above, not a statutory requirement; decided 2026-11-22). One title per type code, so the title follows from BT-3 alone. A full reversal (a void) could also be called "Stornorechnung" [UStAE-14.3 Abs. 2 Satz 5]; it was not chosen because both cases share code 381:
+
+| Document type | UNTDID 1001 | German title | Basis |
+|---|---|---|---|
+| `invoice` | 380 | Rechnung | § 14 Abs. 1 UStG term [UStG-14] |
+| `credit_note` (full or partial) | 381 | Rechnungskorrektur | "Korrektur" in [UStAE-14.3 Abs. 1 Satz 6, Abs. 2 Satz 5] |
+| `corrected_invoice` | 384 | Rechnungsberichtigung | "berichtigt" in [UStDV-31 Abs. 5]; heading 3.1 in [BMF-2026] |
+
+- **Never print "Gutschrift" on a supplier-issued document.** It is not harmful for VAT, but the statute reserves the word for self-billing, and the platform does not issue self-billed invoices.
+- **Print the original's invoice number and issue date** on every 381 and 384 document. This is the simplest way to make the reference specific and unambiguous, and the EN 16931 model has a group for it (BG-3, preceding invoice reference). XRechnung expects a 384 to reference the preceding invoice in BG-3; see [germany-en16931-calculation.md](germany-en16931-calculation.md) (rule BR-DE-26).
+- **Derive the PDF title from the XML type code (BT-3)**, so the two never disagree. The structured part leads [BMF-2024 Rn. 31]; a title is not a mandatory item, so the second-invoice risk in [BMF-2024 Rn. 32] concerns the amounts and items, but a mismatched title would still confuse the reader.
+
+**Open points:**
+
+- The current UStAE could not be read directly: the BMF's official VAT handbook site (usth.bundesfinanzministerium.de) answered with a bot check. UStAE 14.3 was read from an archived copy of the **2023 edition**. The wording of 14.3 Abs. 1 Satz 6 and Abs. 2 Satz 5 should be checked against the current UStAE, including any change by the 2024, 2025, or 2026 letters.
+- UStAE 14c.1 Abs. 3 was read only as the amending text in [BMF-2013 II.8]. The 2023 edition of UStAE 14.3 cites it as Satz 3, so the sentence has moved since 2013.
+- UStAE 14.11 (Rechnungsberichtigung) Abs. 1 was not read. Whether it names the original's number and date as required content is unknown.
+- Whether a full replacement invoice (384) leaves both the original and the replacement as invoices with tax shown, and so a § 14c risk, unless the original is cancelled first: no primary source read answers this.
+- "Stornorechnung", "Rechnungskorrektur", and "Rechnungsberichtigung" are not defined terms in UStG or UStDV; they come from administrative wording. No source makes one of them mandatory.
+
 ## VAT rates
 
 19% standard, 7% reduced. [UStG-12]
@@ -173,6 +206,15 @@ In an E-Rechnung, the mandatory items must be in the structured part. [BMF-2025,
 - **[UStG-27]** § 27 Abs. 38 UStG: https://www.gesetze-im-internet.de/ustg_1980/__27.html
 - **[UStG-12]** § 12 UStG: https://www.gesetze-im-internet.de/ustg_1980/__12.html
 - **[UStDV-33]** § 33 UStDV: https://www.gesetze-im-internet.de/ustdv_1980/__33.html
+- **[UStG-14c]** § 14c UStG: https://www.gesetze-im-internet.de/ustg_1980/__14c.html (checked 2026-11-22)
+- **[UStDV-31]** § 31 UStDV: https://www.gesetze-im-internet.de/ustdv_1980/__31.html (checked 2026-11-22)
+- **[UStAE-14.3]** UStAE Abschnitt 14.3 *Rechnung in Form der Gutschrift*, BMF, Amtliche Umsatzsteuer-Handausgabe **2023** (checked 2026-11-22).
+  - Original: https://usth.bundesfinanzministerium.de/usth/2023/A-Umsatzsteuergesetz/IV-Steuer-und-Vorsteuer/Paragraf-14/ae-14-3.html (answered with a bot check on 2026-11-22)
+  - Copy read (Wayback Machine, 2026-06-15): https://web.archive.org/web/20260615043358/https://usth.bundesfinanzministerium.de/usth/2023/A-Umsatzsteuergesetz/IV-Steuer-und-Vorsteuer/Paragraf-14/ae-14-3.html
+  - SHA-256 of the copy (raw `id_` capture): `6a1f957574099c5b0771f00f3fb5c97eaae52a80e58285202d361bf0ca630d80`
+- **[BMF-2013]** BMF-Schreiben vom 25. Oktober 2013, *Ausstellung von Rechnungen - Änderungen der §§ 14, 14a UStG durch das Amtshilferichtlinie-Umsetzungsgesetz*, GZ IV D 2 - S 7280/12/10002, DOK 2013/0956687. Cited by section (I.2 = Rechnungsangabe "Gutschrift"; II.6 to II.8 = amendments to UStAE 14.5 Abs. 24, 14a.1, 14c.1 Abs. 3). It cites the statute's old numbering (§ 14 Abs. 2 Satz 2 for Gutschrift). (checked 2026-11-22)
+  - Copy read: hosted by IHK München, https://www.ihk-muenchen.de/ihk/documents/Recht-Steuern/Steuerrecht/Neuer-Ordner/bmf-schreiben-vom-25.-oktober-2013.pdf (14 pages)
+  - SHA-256 of the copy: `094725620ed79bfb04ab551c99db07e496b6459be6584dc011ba4af9bb091e51`
 - **[AO-147]** § 147 AO: https://www.gesetze-im-internet.de/ao_1977/__147.html
 - **[BMF-2024]** BMF-Schreiben vom 15. Oktober 2024, *Ausstellung von Rechnungen nach § 14 UStG; Einführung der obligatorischen elektronischen Rechnung bei Umsätzen zwischen inländischen Unternehmern ab dem 1. Januar 2025*, GZ III C 2 - S 7287-a/23/10001 :007, DOK 2024/0883282, BStBl I S. 1320.
   - Copy read: hosted by the Bundesarchitektenkammer, https://bak.de/wp-content/uploads/2024/12/2024-10-15-BMF-Einfuehrung-e-rechnung.pdf (18 pages; PDF created 2024-10-15, modified 2024-12-12, so the host may have re-saved it)

@@ -1,6 +1,6 @@
 # 0006. PDF generation with Typst, pending a spike
 
-- **Status:** Proposed (becomes Accepted when the spike below passes)
+- **Status:** Accepted (the spike passed on 2026-11-22; results below)
 - **Date:** 2026-11-01
 - **Decided by:** Hamza Pratama (owner), with research by the AI coding agent
 
@@ -41,6 +41,25 @@ Rules that hold either way:
 3. Measured: extra cold-start time, Active CPU per render, PDF size, and deployment bundle size (under 250 MB).
 4. A `--pdf-standard a-3b` export with an attached XML file passes veraPDF, run locally or in CI. Whether the ZUGFeRD XMP block can be added is recorded as a finding, not a pass condition.
 
+### Spike results (2026-11-22)
+
+Run on a throwaway Vercel project (`jade-invoicing-pdf-spike`, fra1, Hobby), deleted afterwards. The code is kept on branch `spike/typst-vercel` under `spikes/typst-vercel/` and is never merged. Raw facts and sources: [`docs/research/2026-11-22-pdf-storage-and-typst.md`](../research/2026-11-22-pdf-storage-and-typst.md).
+
+| Criterion | Result |
+|---|---|
+| 1. Pinned binary runs through `os/exec` | **Pass.** Typst v0.15.1, `typst-x86_64-unknown-linux-musl.tar.xz`, SHA-256 `a6d077d0…3118c` (GitHub's asset digest; the project publishes no checksum file). Downloaded at build time and checked against the digest. |
+| 2. Japanese and German invoice render; text extractable | **Pass**, on Vercel and locally: kanji, kana, ß, and ü extract as text. Fonts: Noto Sans JP and Noto Sans, Regular and Bold (SIL OFL 1.1). |
+| 3. Measurements | Render: 26 to 47 ms wall, 20 to 50 ms CPU (user + system) per document. PDF: 31 to 35 KB. Server binary with all assets embedded: 76 MB (limit 250 MB). Cold start: first `/healthz` 0.65 s, against 1.15 s for the current API's cold `/healthz`, so the larger binary adds nothing noticeable. Writing the assets to `/tmp` once per instance: 1.2 s, paid by the first render of an instance. |
+| 4. PDF/A-3b with an attached XML passes veraPDF | **Pass.** `--pdf-standard a-3b` plus `pdf.attach(..., relationship: "data", mime-type: "text/xml")`: veraPDF (`verapdf/cli`, flavour 3b) reports PASS; the file carries `EmbeddedFile`, `AFRelationship /Data`, and `pdfaid` part 3, conformance B. **Finding:** Typst 0.15.1 has no way to add custom XMP, so the ZUGFeRD `fx` schema is still open for phase 2 (Typst issue #5667 proposes it). |
+
+What the spike found about the Vercel Go preset, which the documentation does not state:
+
+- **`includeFiles` cannot be used.** The `functions` key in `vercel.json` only matches files in an `api/` directory, and the preset's single server has none. Without it, the bundle holds only the server binary.
+- **`installCommand` is ignored.** `buildCommand` runs, but replaces the preset's own `go build`, so it must end with `go build -o "$VERCEL_OUTPUT_FILE" ./cmd/api`.
+- **So the assets are embedded.** `go:embed` puts the Typst binary, fonts, and templates into the server binary; on first use they are written to `/tmp` and the binary runs from there. `/tmp` allows execution.
+
+Cost on the free tier: at about 50 ms CPU per render, the 4 Active CPU-hours of Vercel Hobby cover far more renders than a portfolio demo will see.
+
 ## Consequences
 
 **Positive**
@@ -57,8 +76,9 @@ Rules that hold either way:
 
 ## Follow-ups
 
-- Run the spike early in phase 1, before the PDF endpoint is built.
-- Record the licenses of Typst and the fonts when they are added.
+- ~~Run the spike early in phase 1, before the PDF endpoint is built.~~ Done 2026-11-22.
+- Phase 2: find a way to write the ZUGFeRD XMP block (a post-processing step, or Typst once #5667 lands), in its own ADR.
+- Record the licenses of Typst (Apache-2.0) and the fonts (SIL OFL 1.1) when they are added to `apps/api`.
 
 [typst-pdf]: https://typst.app/docs/reference/pdf/
 [typst-changelog]: https://typst.app/docs/changelog/

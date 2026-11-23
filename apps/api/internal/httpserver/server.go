@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/invoicepdf"
+	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/objstore"
 	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/problem"
 )
 
@@ -25,6 +27,13 @@ type Config struct {
 	// answers 503, and /v1 answers 500 with "database not configured" in
 	// the log.
 	DB *pgxpool.Pool
+	// Renderer and Files render and store PDFs (ADR 0017). Without them,
+	// render messages fail and stay in the queue, and GET /files answers
+	// 500 once a file exists.
+	Renderer *invoicepdf.Renderer
+	Files    *objstore.Store
+	// DrainToken guards POST /internal/queue/drain. Empty admits no one.
+	DrainToken string
 }
 
 // New returns the API's root handler.
@@ -32,7 +41,8 @@ func New(cfg Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health(cfg.Commit))
 	mux.HandleFunc("GET /readyz", ready(cfg.Logger, cfg.DB))
-	registerV1(mux, cfg.Logger, cfg.DB)
+	registerV1(mux, cfg.Logger, cfg.DB, cfg.Files)
+	mux.Handle("POST /internal/queue/drain", drainHandler(cfg))
 
 	h := problemsForUnmatched(mux)
 	h = limitBody(h)

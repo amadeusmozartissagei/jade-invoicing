@@ -191,3 +191,46 @@ The queue tables have no row-level security. A message holds a delivery ID and a
 **How did testing find a redundant check?**
 Mutation testing: each rule was broken on purpose to see whether a test fails. Removing void's own "already has credit notes" check failed nothing, because the general credit-limit rule at issue already refuses it. The duplicate was deleted, leaving one rule in one place.
 
+## Invoice PDFs (slice 7e, ADR 0006, ADR 0017)
+
+**Why render the PDF in the background, not while issuing?**
+- **The lock.** Issuing holds the number-series lock. Rendering and uploading inside that transaction would make every other issue on the series wait for Typst and the network.
+- **Rollback.** A rollback after a successful upload would leave a file for an invoice that was never issued.
+- **How.** The issue transaction only queues a message (`pgmq.send`). It commits or rolls back together with the invoice.
+
+**How does the background job run without a server that runs all the time?**
+- **The schedule.** `pg_cron` in the database runs every 10 seconds.
+- **The call.** When a message is waiting, it calls the API's drain endpoint through `pg_net`, with a bearer token kept in Supabase Vault.
+- **No work, no call.** An empty queue costs no Vercel invocation.
+
+**What if the job crashes halfway, or runs twice?**
+- **Every step can repeat.**
+  - The render is deterministic: same data, pinned Typst and fonts, and the PDF's creation date set to the issue time. A retry makes the same bytes.
+  - The file is stored under its SHA-256, so a retry overwrites it with identical content.
+  - The database row is unique per document and kind. The first one wins.
+- **The tests.** One test makes the insert fail after the upload, then shows the retry ends with one row matching the stored file.
+
+**What happens to a job that keeps failing?**
+- **Retries.** pgmq counts reads (`read_ct`). A failed job becomes visible again after 60 seconds.
+- **Giving up.** After the 5th attempt the job is archived and logged. A message read more than 5 times is archived without running, in case an attempt died before it could be counted.
+- **One bad job does not block the rest.** A test puts a broken message first in the queue and checks that the good one behind it still runs.
+
+**How do customers download the PDF without the bucket being public?**
+- **Presigned URLs.** The bucket is private. `GET /files` returns presigned S3 URLs (SigV4) that expire after 5 minutes. The signature is computed locally, so listing files makes no call to Storage.
+- **The key.** The server's S3 key works only in Storage, not in the database. That is why it was chosen over Supabase's service-role key, which bypasses row-level security everywhere.
+
+**Can a customer name break the PDF or run code in it?**
+- **Data, never markup.** Invoice data reaches Typst only as a JSON file, and the template shows each value as text.
+- **The test.** A buyer named `#panic("x") $x^2$ [*b*]` and a line called `#read("/etc/passwd")` both appear on the PDF exactly as typed.
+
+**How do you know the PDF meets the law?**
+- **Reading the PDF back.** The tests extract the text with `pdftotext` and check the required items:
+  - in Japan, the registration number, transaction date, the ※ reduced-rate mark, and totals and tax per rate
+  - in Germany, both addresses, the VAT ID or tax number, the dates, the number, and net and tax per rate
+- **Archival format.** CI checks six sample PDFs, every document type in both countries, with veraPDF for PDF/A-3b.
+- **What review found.** The spec review noticed that a Japanese return invoice must also show the original transaction's date. That is now printed.
+
+**Why ship a 76 MB binary on a serverless platform?**
+- **Fit.** Typst renders an invoice in about 50 ms and writes PDF/A-3. Phase 2 needs PDF/A-3 for ZUGFeRD.
+- **How it gets there.** The Vercel Go preset bundles only the server binary, so Typst is embedded with `go:embed`. It is downloaded at build time and checked against its SHA-256.
+- **Cost.** The spike measured no noticeable cold-start cost.

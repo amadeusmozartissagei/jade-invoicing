@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "go",
   "regions": ["fra1"],
+  "buildCommand": "sh scripts/fetch-typst.sh internal/invoicepdf/embedded && go build -tags typst_embedded -o \"$VERCEL_OUTPUT_FILE\" ./cmd/api",
   "ignoreCommand": "test -n \"$VERCEL_GIT_PREVIOUS_SHA\" && test \"$VERCEL_GIT_PREVIOUS_SHA\" != \"$VERCEL_GIT_COMMIT_SHA\" && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ../../openapi"
 }

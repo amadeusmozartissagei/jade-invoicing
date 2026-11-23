@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/api"
+	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/objstore"
 	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/problem"
 )
 
@@ -17,6 +18,7 @@ import (
 // registerV1), so their paths still answer 404.
 type handlers struct {
 	api.StrictServerInterface
+	files *objstore.Store // nil when Storage is not configured
 }
 
 // registerV1 routes the implemented /v1 operations. Each one runs
@@ -26,8 +28,8 @@ type handlers struct {
 //
 // so the handler gets a decoded, contract-valid request and the tenant's
 // transaction in its context.
-func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool) {
-	h := &handlers{}
+func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool, files *objstore.Store) {
+	h := &handlers{files: files}
 	strict := api.NewStrictHandlerWithOptions(h, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  bodyError,
 		ResponseErrorHandlerFunc: responseError(log),
@@ -66,6 +68,7 @@ func registerV1(mux *http.ServeMux, log *slog.Logger, pool *pgxpool.Pool) {
 	routeIfMatch("DELETE /v1/invoices/{id}", wrapper.DeleteInvoice)
 	route("POST /v1/invoices/{id}/issue", wrapper.IssueInvoice)
 	route("POST /v1/invoices/{id}/void", wrapper.VoidInvoice)
+	route("GET /v1/invoices/{id}/files", wrapper.ListInvoiceFiles)
 }
 
 // requestError and bodyError answer a parameter or body that passed

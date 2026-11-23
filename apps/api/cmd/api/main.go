@@ -17,6 +17,8 @@ import (
 
 	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/db"
 	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/httpserver"
+	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/invoicepdf"
+	"github.com/amadeusmozartissagei/jade-invoicing/apps/api/internal/objstore"
 )
 
 func main() {
@@ -48,12 +50,20 @@ func run(log *slog.Logger) error {
 		log.Warn("JADE_API_DATABASE_URL is not set; /v1 endpoints will answer 500")
 	}
 
+	renderer, files, drainToken := pdfConfig(log)
+	if renderer != nil {
+		defer func() { _ = renderer.Close() }()
+	}
+
 	srv := &http.Server{
 		Addr: ":" + port,
 		Handler: httpserver.New(httpserver.Config{
-			Logger: log,
-			Commit: os.Getenv("VERCEL_GIT_COMMIT_SHA"),
-			DB:     pool,
+			Logger:     log,
+			Commit:     os.Getenv("VERCEL_GIT_COMMIT_SHA"),
+			DB:         pool,
+			Renderer:   renderer,
+			Files:      files,
+			DrainToken: drainToken,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -85,4 +95,38 @@ func run(log *slog.Logger) error {
 		return err
 	}
 	return nil
+}
+
+// pdfConfig reads the settings for PDFs (ADR 0017, D10). Each missing part
+// is logged once and leaves its feature off; none stops the server, so
+// /healthz and the rest of /v1 keep working.
+func pdfConfig(log *slog.Logger) (*invoicepdf.Renderer, *objstore.Store, string) {
+	// With the typst_embedded build tag (Vercel), an empty path means the
+	// embedded binary; without it, JADE_TYPST_BIN must name one.
+	renderer, err := invoicepdf.New(invoicepdf.Options{TypstPath: os.Getenv("JADE_TYPST_BIN")})
+	if err != nil {
+		log.Warn("PDF rendering is off", "error", err)
+	}
+
+	var files *objstore.Store
+	if os.Getenv("JADE_S3_ENDPOINT") != "" {
+		files, err = objstore.New(objstore.Config{
+			Endpoint:        os.Getenv("JADE_S3_ENDPOINT"),
+			Region:          os.Getenv("JADE_S3_REGION"),
+			AccessKeyID:     os.Getenv("JADE_S3_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("JADE_S3_SECRET_ACCESS_KEY"),
+			Bucket:          objstore.InvoiceFilesBucket,
+		})
+		if err != nil {
+			log.Warn("PDF storage is off", "error", err)
+		}
+	} else {
+		log.Warn("JADE_S3_ENDPOINT is not set; PDFs are not stored")
+	}
+
+	token := os.Getenv("JADE_DRAIN_TOKEN")
+	if token == "" {
+		log.Warn("JADE_DRAIN_TOKEN is not set; /internal/queue/drain answers 401")
+	}
+	return renderer, files, token
 }
