@@ -112,6 +112,9 @@ jobs:
       # image is pinned by digest (pulled 2026-11-23).
       - name: Validate sample PDFs with veraPDF
         run: |
+          # The tests write the samples as 0600; the container runs as
+          # another user.
+          chmod a+r "$RUNNER_TEMP"/pdf/*.pdf
           docker run --rm -v "$RUNNER_TEMP/pdf:/data" verapdf/cli@sha256:c2ac9448973a56acd833c81441e38d2dca58ea26a2ce1621e9a32e85d3d2728f --flavour 3b --format text $(cd "$RUNNER_TEMP/pdf" && printf '/data/%s ' *.pdf) | tee verapdf.txt
           test "$(grep -c '^PASS' verapdf.txt)" -eq "$(ls "$RUNNER_TEMP/pdf" | wc -l)"
           test "$(grep -c '^PASS' verapdf.txt)" -ge 5
